@@ -1,0 +1,657 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 20,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "use-ninja",
+            "description": "Default build tool",
+            "hidden": true,
+            "generator": "Ninja",
+            "cacheVariables": {
+                "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+            }
+        },
+        {
+            "name": "default-dirs",
+            "description": "Default build and install directories",
+            "hidden": true,
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/build/${presetName}/install"
+            }
+        },
+        {
+            "name": "default-env",
+            "description": "Default environment variables for the CMake process",
+            "hidden": true,
+            "environment": {
+                "CONAN_V2_MODE": "1"
+            }
+        },
+        {
+            "name": "use-stdlib-libc++",
+            "description": "Enforce to compile and link with libc++",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_FLAGS": "-stdlib=libc++",
+                "CMAKE_EXE_LINKER_FLAGS": "-stdlib=libc++",
+                "CMAKE_SHARED_LINKER_FLAGS": "-stdlib=libc++"
+            }
+        },
+        {
+            "name": "debug-build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "release-build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "release-with-debug-build",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+                "USE_DEBUG_OUTPUT": "OFF",
+                "USE_LOG": "OFF"
+            }
+        },
+        {
+            "name": "clang-tidy",
+            "hidden": true,
+            "cacheVariables": {
+                "CMAKE_CXX_CLANG_TIDY": "clang-tidy"
+            }
+        },
+        {
+            "name": "compiler-clang",
+            "description": "Clang C language family frontend for LLVM",
+            "hidden": true,
+            "inherits": [
+                "default-dirs",
+                "default-env",
+                "use-ninja"
+            ],
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang++"
+            }
+        },
+        {
+            "name": "compiler-gcc",
+            "description": "GNU Compiler Collection (GCC)",
+            "hidden": true,
+            "inherits": [
+                "default-dirs",
+                "default-env",
+                "use-ninja"
+            ],
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "g++"
+            }
+        },
+        {
+            "name": "compiler-msvc",
+            "description": "Microsoft Visual Studio C++ compiler",
+            "hidden": true,
+            "inherits": [
+                "default-dirs",
+                "default-env",
+                "use-ninja"
+            ],
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "cl"
+            }
+        },
+        {
+            "name": "compiler-msvc-clang",
+            "description": "Microsoft Visual Studio bundled Clang-Cl",
+            "hidden": true,
+            "inherits": [
+                "default-dirs",
+                "default-env",
+                "use-ninja"
+            ],
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER": "clang-cl"
+            }
+        },
+        {
+            "name": "linux-default",
+            "description": "Linux common settings",
+            "hidden": true,
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [
+                        "Linux"
+                    ]
+                },
+                "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+                }
+              }
+        },
+        {
+            "name": "linux-clang-default",
+            "displayName": "Linux Clang",
+            "hidden" : true,
+            "description": "Linux/WSL2 LLVM Clang compiler",
+            "inherits": [
+                "linux-default",
+                "compiler-clang"
+            ]
+        },
+        {
+            "name": "linux-clang-debug",
+            "displayName": "Linux Clang: Debug",
+            "description": "Linux/WSL2 LLVM Clang compiler: Debug",
+            "inherits": [
+                "linux-clang-default",
+                "debug-build"
+            ]
+        },
+        {
+            "name": "linux-clang-release",
+            "displayName": "Linux Clang: Release",
+            "description": "Linux/WSL2 LLVM Clang compiler: Release",
+            "inherits": [
+                "linux-clang-default",
+                "release-build"
+            ]
+        },
+        {
+            "name": "linux-gcc-default",
+            "displayName": "Linux GCC",
+            "hidden" : true,
+            "description": "Linux/WSL2 GNU C compiler",
+            "inherits": [
+                "linux-default",
+                "compiler-gcc"
+            ]
+        },
+        {
+            "name": "linux-gcc-debug",
+            "displayName": "Linux GCC: Debug",
+            "description": "Linux/WSL2 GNU C compiler: Debug",
+            "inherits": [
+                "linux-gcc-default",
+                "debug-build"
+            ]
+        },
+        {
+            "name": "linux-gcc-release",
+            "displayName": "Linux GCC: Release",
+            "description": "Linux/WSL2 GNU C compiler: Release",
+            "inherits": [
+                "linux-gcc-default",
+                "release-build"
+            ]
+        },
+        {
+            "name": "windows-default",
+            "description": "Windows common settings",
+            "hidden": true,
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [
+                        "Windows"
+                    ]
+                }
+            }
+        },
+        {
+            "name": "windows-arch-x64",
+            "description": "Windows MSVC x64 architecture with special handling of external toolset like ninja",
+            "hidden": true,
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+            "toolset": {
+                "value": "host=x64",
+                "strategy": "external"
+            }
+        },
+        {
+            "name": "windows-msvc-default",
+            "description": "Windows MSVC compiler",
+            "hidden": true,
+            "inherits": [
+                "windows-default",
+                "windows-arch-x64",
+                "compiler-msvc"
+            ]
+        },
+        {
+            "name": "windows-msvc-clang-default",
+            "description": "Windows MSVC Clang-Cl",
+            "hidden": true,
+            "inherits": [
+                "windows-default",
+                "windows-arch-x64",
+                "compiler-msvc-clang"
+            ]
+        },
+        {
+            "name": "windows-clang-default",
+            "description": "Windows Clang",
+            "hidden": true,
+            "inherits": [
+                "windows-default",
+                "windows-arch-x64",
+                "compiler-clang"
+            ]
+        },
+        {
+            "name": "windows-msvc-debug",
+            "displayName": "Windows MSVC: Debug",
+            "description": "Microsoft Visual Studio C++ compiler: Debug",
+            "inherits": [
+                "windows-msvc-default",
+                "debug-build"
+            ]
+        },
+        {
+            "name": "windows-msvc-release",
+            "displayName": "Windows MSVC: Release",
+            "description": "Microsoft Visual Studio C++ compiler: Release",
+            "inherits": [
+                "windows-msvc-default",
+                "release-build"
+            ]
+        },
+        {
+            "name": "windows-msvc-clang-debug",
+            "displayName": "Windows MSVC Clang: Debug",
+            "description": "Microsoft Visual Studio Clang-Cl compiler: Debug",
+            "inherits": [
+                "windows-msvc-clang-default",
+                "debug-build"
+            ]
+        },
+        {
+            "name": "windows-msvc-clang-release",
+            "displayName": "Windows MSVC Clang: Release",
+            "description": "Microsoft Visual Studio Clang-Cl compiler: Release",
+            "inherits": [
+                "windows-msvc-clang-default",
+                "release-build"
+            ]
+        },
+        {
+            "name": "windows-clang-debug",
+            "displayName": "Windows Clang: Debug",
+            "description": "Windows LLVM Clang compiler: Debug",
+            "inherits": [
+                "windows-clang-default",
+                "debug-build"
+            ]
+        },
+        {
+            "name": "windows-clang-release",
+            "displayName": "Windows Clang: Release",
+            "description": "Windows LLVM Clang compiler: Release",
+            "inherits": [
+                "windows-clang-default",
+                "release-build"
+            ]
+        },
+        {
+            "name": "macos-default",
+            "description": "macOS common settings",
+            "hidden": true,
+            "vendor": {
+                "microsoft.com/VisualStudioSettings/CMake/1.0": {
+                    "hostOS": [
+                        "macOS"
+                    ]
+                },
+                "microsoft.com/VisualStudioRemoteSettings/CMake/1.0": {
+                }
+            }
+        },
+        {
+            "name": "macos-clang-default",
+            "displayName": "macOS Clang",
+            "hidden" : true,
+            "description": "macOS LLVM Clang compiler",
+            "inherits": [
+                "macos-default",
+                "compiler-clang"
+            ]
+        },
+        {
+            "name": "macos-clang-debug",
+            "displayName": "macOS Clang: Debug",
+            "description": "macOS LLVM Clang compiler: Debug",
+            "inherits": [
+                "macos-clang-default",
+                "debug-build"
+            ]
+        },
+        {
+            "name": "macos-clang-release",
+            "displayName": "macOS Clang: Release",
+            "description": "macOS LLVM Clang compiler: Release",
+            "inherits": [
+                "macos-clang-default",
+                "release-build"
+            ]
+        },
+        {
+            "name": "ci-default",
+            "description": "OS shared settings for ci pipeline",
+            "hidden": true,
+            "cacheVariables": {  }
+        },
+        {
+            "name": "ci-linux-default",
+            "description": "settings for ci pipeline for Linux",
+            "hidden": true,
+            "inherits": [
+                "ci-default"
+            ],
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
+             }
+        },
+        {
+            "name": "ci-windows-default",
+            "description": "settings for ci pipeline for Windows",
+            "hidden": true,
+            "inherits": [
+                "ci-default"
+            ],
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER_LAUNCHER": "sccache"
+            }
+        },
+        {
+            "name": "ci-macos-default",
+            "description": "settings for ci pipeline for macOS",
+            "hidden": true,
+            "inherits": [
+                "ci-default"
+            ],
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER_LAUNCHER": "sccache"
+             }
+        },
+        {
+            "name": "ci-linux-clang",
+            "displayName": "CI [Linux/clang]",
+            "description": "used by the ci pipeline",
+            "inherits": [
+                "ci-linux-default",
+                "linux-clang-release"
+            ]
+        },
+        {
+            "name": "ci-linux-gcc",
+            "displayName": "CI [Linux/gcc]",
+            "description": "used by the ci pipeline",
+            "inherits": [
+                "ci-linux-default",
+                "linux-gcc-release"
+            ]
+        },
+        {
+            "name": "ci-windows-msvc",
+            "displayName": "CI [Windows/msvc]",
+            "description": "used by the ci pipeline",
+            "inherits": [
+                "ci-windows-default",
+                "windows-msvc-release"
+            ]
+        },
+        {
+            "name": "ci-macos-clang",
+            "displayName": "CI [macOS/clang]",
+            "description": "used by the ci pipeline",
+            "inherits": [
+                "ci-macos-default",
+                "macos-clang-release"
+            ]
+        },
+        {
+            "name": "linux-dev",
+            "displayName": "Linux Clang Developer Mode",
+            "description": "Linux/WSL2 LLVM Clang compiler Developer Mode",
+            "inherits": [
+                "linux-clang-default",
+                "release-build",
+                "clang-tidy"
+            ],
+            "cacheVariables": {
+                "CMAKE_CXX_COMPILER_LAUNCHER": "ccache"
+            }
+        }
+    ],
+    "buildPresets": [
+        {
+            "name": "linux-clang-debug",
+            "displayName": "Debug",
+            "configurePreset": "linux-clang-debug"
+        },
+        {
+            "name": "linux-clang-release",
+            "displayName": "Release",
+            "configurePreset": "linux-clang-release"
+        },
+        {
+            "name": "linux-gcc-debug",
+            "displayName": "Debug",
+            "configurePreset": "linux-gcc-debug"
+        },
+        {
+            "name": "linux-gcc-release",
+            "displayName": "Release",
+            "configurePreset": "linux-gcc-release"
+        },
+        {
+            "name": "windows-msvc-debug",
+            "displayName": "Debug",
+            "configurePreset": "windows-msvc-debug"
+        },
+        {
+            "name": "windows-msvc-release",
+            "displayName": "Release",
+            "configurePreset": "windows-msvc-release"
+        },
+        {
+            "name": "windows-msvc-clang-debug",
+            "displayName": "Debug",
+            "configurePreset": "windows-msvc-clang-debug"
+        },
+        {
+            "name": "windows-msvc-clang-release",
+            "displayName": "Release",
+            "configurePreset": "windows-msvc-clang-release"
+        },
+        {
+            "name": "windows-clang-debug",
+            "displayName": "Debug",
+            "configurePreset": "windows-clang-debug"
+        },
+        {
+            "name": "windows-clang-release",
+            "displayName": "Release",
+            "configurePreset": "windows-clang-release"
+        },
+        {
+            "name": "macos-clang-debug",
+            "displayName": "Debug",
+            "configurePreset": "macos-clang-debug"
+        },
+        {
+            "name": "macos-clang-release",
+            "displayName": "Release",
+            "configurePreset": "macos-clang-release"
+        },
+        {
+            "name": "ci-linux-clang",
+            "displayName": "CI",
+            "configurePreset": "ci-linux-clang"
+        },
+        {
+            "name": "ci-linux-gcc",
+            "displayName": "CI",
+            "configurePreset": "ci-linux-gcc"
+        },
+        {
+            "name": "ci-windows-msvc",
+            "displayName": "CI",
+            "configurePreset": "ci-windows-msvc"
+        },
+        {
+            "name": "ci-macos-clang",
+            "displayName": "CI",
+            "configurePreset": "ci-macos-clang"
+        },
+        {
+            "name": "linux-dev",
+            "displayName": "Dev-Build",
+            "configurePreset": "linux-dev"
+        }
+    ],
+    "testPresets": [
+        {
+            "name": "test-default",
+            "hidden": true,
+            "output": {
+                "outputOnFailure": true
+            },
+            "execution": {
+                "noTestsAction": "error",
+                "stopOnFailure": false
+            }
+        },
+        {
+            "name": "linux-clang-release",
+            "displayName": "Test-All",
+            "configurePreset": "linux-clang-release",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "linux-clang-debug",
+            "displayName": "Test-All",
+            "configurePreset": "linux-clang-debug",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "linux-gcc-release",
+            "displayName": "Test-All",
+            "configurePreset": "linux-gcc-release",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "linux-gcc-debug",
+            "displayName": "Test-All",
+            "configurePreset": "linux-gcc-debug",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "windows-msvc-release",
+            "displayName": "Test-All",
+            "configurePreset": "windows-msvc-release",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "windows-msvc-debug",
+            "displayName": "Test-All",
+            "configurePreset": "windows-msvc-debug",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "windows-clang-release",
+            "displayName": "Test-All",
+            "configurePreset": "windows-clang-release",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "windows-clang-debug",
+            "displayName": "Test-All",
+            "configurePreset": "windows-clang-debug",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "macos-clang-release",
+            "displayName": "Test-All",
+            "configurePreset": "macos-clang-release",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "macos-clang-debug",
+            "displayName": "Test-All",
+            "configurePreset": "macos-clang-debug",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "ci-linux-clang",
+            "displayName": "Test-All",
+            "configurePreset": "ci-linux-clang",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "ci-linux-gcc",
+            "displayName": "Test-All",
+            "configurePreset": "ci-linux-gcc",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "ci-windows-msvc",
+            "displayName": "Test-All",
+            "configurePreset": "ci-windows-msvc",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "ci-macos-clang",
+            "displayName": "Test-All",
+            "configurePreset": "ci-macos-clang",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "linux-dev",
+            "displayName": "Dev-Tests",
+            "configurePreset": "linux-dev",
+            "inherits": [
+                "test-default"
+            ]
+        }
+    ]
+}
