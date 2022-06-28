@@ -35,5 +35,5 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 
 add_executable(${PROJECT_NAME})
 target_sources(${PROJECT_NAME} PRIVATE x3.cpp)
-target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt)
+target_link_libraries(${PROJECT_NAME} PRIVATE fmt::fmt range-v3::range-v3)
 target_include_directories(${PROJECT_NAME} PRIVATE $<BUILD_INTERFACE:${Boost_INCLUDE_DIR}>)
