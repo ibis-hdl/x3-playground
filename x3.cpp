@@ -46,8 +46,8 @@ struct decimal_literal : x3::position_tagged {
     num_type                    num;
     // std::variant<RealT, IntT> const value() // lazy numeric conversion
 };
-using literal = variant<based_literal, decimal_literal>; // Todo unify!
-using literals = std::vector<literal>;
+using abstract_literal = variant<based_literal, decimal_literal>; // Todo unify!
+using abstract_literals = std::vector<abstract_literal>;
 
 using decimal_literals = std::vector<decimal_literal>;
 
@@ -81,7 +81,7 @@ std::ostream& operator<<(std::ostream& os, ast::decimal_literal const& l) {
     boost::apply_visitor(v, l.num);
     return os;
 }
-std::ostream& operator<<(std::ostream& os, ast::literal const& l) {
+std::ostream& operator<<(std::ostream& os, ast::abstract_literal const& l) {
     struct v {
         void operator()(ast::based_literal b) const { os << b; }
         void operator()(ast::decimal_literal d) const { os << d; }
@@ -234,10 +234,13 @@ auto const based_literal = x3::rule<struct based_literal_class, ast::decimal_lit
 auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal_literal>{ "decimal literal" } =
     x3::attr(10U) >> (real | integer);
 
-auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "literal" } =
+auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstract_literal>{ "based or decimal abstract literal" } =
+    based_literal | decimal_literal;
+
+auto const grammar = x3::rule<struct grammar_class, ast::abstract_literals>{ "literal" } =
     x3::skip(x3::space | comment)[
           *(lit("X :=")
-        >> mandatory<ast::literal>((based_literal | decimal_literal), "based or decimal abstract literal") 
+        >> mandatory<ast::abstract_literal>((based_literal | decimal_literal), "based or decimal abstract literal") 
         >> x3::expect[';'])
     ];
 
@@ -281,7 +284,7 @@ int main()
             grammar >> x3::eoi
         ];
 
-        ast::literals literals;
+        ast::abstract_literals literals;
         bool parse_ok = x3::parse(input.begin(), input.end(), grammar_, literals);
         std::cout << fmt::format("parse ok is '{}', numeric literals:\n", parse_ok);
         for(auto const& lit: literals) {
