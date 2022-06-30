@@ -236,7 +236,9 @@ auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal
 
 auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "literal" } =
     x3::skip(x3::space | comment)[
-        *((based_literal | decimal_literal) >> x3::expect[';'])
+          *(lit("X :=")
+        >> mandatory<ast::literal>((based_literal | decimal_literal), "based or decimal abstract literal") 
+        >> x3::expect[';'])
     ];
 
 struct grammar_class : my_error_handler {};
@@ -249,26 +251,26 @@ int main()
 
     std::string const input = R"(
     // based literal
-    0_2#1100_0001#;
-    8#1_20#E1;
-    10#42#E42;
-    16#AFFE_1.0CAFE#e-10;
+    X := 0_2#1100_0001#;
+    X := 8#1_20#E1;
+    X := 10#42#E42;
+    X := 16#AFFE_1.0CAFE#e-10;
     // decimal literal
-    42;
-    42.42;
-    2.2E-6;
-    1e+3;
+    X := 42;
+    X := 42.42;
+    X := 2.2E-6;
+    X := 1e+3;
     // failure test
-    2##;          // - based literal real or integer type
+    X := 2##;          // - based literal real or integer type
     // failure
-    3#011#;       // base not supported
-    2#120#1;      // wrong char set for binary
-    10#42#666;    // exp can't fit double (e308)
-    8#1#e1        // forgot ';' - otherwise ok
-    8#2#          // also forgot ';' - otherwise ok
-    16#1.2#e;     // forgot exp num
+    X := 3#011#;       // base not supported
+    X := 2#120#1;      // wrong char set for binary
+    X := 10#42#666;    // exp can't fit double (e308)
+    X := 8#1#e1        // forgot ';' - otherwise ok
+    X := 8#2#          // also forgot ';' - otherwise ok
+    X := 16#1.2#e;     // forgot exp num
     // ok, just to test success afterwards
-    10#42.666#e4711;
+    X := 10#42.666#e4711;
 )";
 
     try {
