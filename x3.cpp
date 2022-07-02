@@ -35,21 +35,25 @@ struct integer_type : x3::position_tagged  {
 };
 struct based_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
-    std::uint32_t               base;
-    num_type                    num;
+    std::uint32_t           base;
+    num_type                num;
     // e.g. https://coliru.stacked-crooked.com/a/652a879e37b4ea37
     // std::variant<RealT, IntT> const value() // lazy numeric conversion
 };
 struct decimal_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
-    std::uint32_t               base = 10; // dummy
-    num_type                    num;
+    std::uint32_t           base = 10; // dummy
+    num_type                num;
     // std::variant<RealT, IntT> const value() // lazy numeric conversion
 };
-using abstract_literal = variant<based_literal, decimal_literal>; // Todo unify!
-using abstract_literals = std::vector<abstract_literal>;
-
-using decimal_literals = std::vector<decimal_literal>;
+struct bit_string_literal : x3::position_tagged  {
+    std::uint32_t           base;
+    std::string             integer;    // base: 2,8,10,16
+};
+using abstract_literal = variant<based_literal, decimal_literal>;
+//using literal = variant<numeric_literal, enumeration_literal, string_literal, bit_string_literal>;
+using literal = variant<abstract_literal, bit_string_literal>;
+using literals = std::vector<literal>;
 
 std::ostream& operator<<(std::ostream& os, ast::real_type const& r) {
     os << fmt::format("#{}.{}#e{}", r.integer, r.fractional, r.exponent.value_or(1));
@@ -91,6 +95,20 @@ std::ostream& operator<<(std::ostream& os, ast::abstract_literal const& l) {
     boost::apply_visitor(v, l);
     return os;
 }
+std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& l) {
+    os << fmt::format(R"({}"{}")", l.base, l.integer);
+    return os;
+}
+std::ostream& operator<<(std::ostream& os, ast::literal const& l) {
+    struct v {
+        void operator()(ast::abstract_literal a) const { os << a; }
+        void operator()(ast::bit_string_literal b) const { os << b; }
+        std::ostream& os;
+        v(std::ostream& os_) : os{ os_ } {}
+    } const v(os);
+    boost::apply_visitor(v, l);
+    return os;
+}
 
 } // namespace ast
 
@@ -98,6 +116,7 @@ BOOST_FUSION_ADAPT_STRUCT(ast::real_type, integer, fractional, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::integer_type, integer, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::based_literal, base, num)
 BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, base, num)
+BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, integer)
 
 namespace {
 
@@ -205,11 +224,19 @@ auto mandatory(auto p, char const* name = typeid(decltype(p)).name()) {
 using x3::char_;
 using x3::lit;
 
+auto const comment = "//" >> *(char_ - x3::eol) >> x3::eol;
+
+auto const char_set = [](auto&& char_range, char const* name) {
+    return x3::rule<struct _, std::string>{ name } = x3::as_parser(
+        x3::raw[ char_(char_range) >> *(-lit("_") >> char_(char_range)) ]);
+};
+auto const bin_charset = char_set("01", "binary charset");
+auto const oct_charset = char_set("0-7", "octal charset");
+auto const hex_charset = char_set("0-9a-fA-F", "hexadecimal charset");
+
 auto const base_ = literal_base_type{};
 auto const int_ =  based_integer_parser<10U, std::int32_t>{};
 auto const uint_ = based_integer_parser<10U, std::uint32_t>{};
-
-auto const comment = "//" >> *(char_ - x3::eol) >> x3::eol;
 
 auto const base = x3::rule<struct _, std::uint32_t>{ "literal base" } =
     base_;
@@ -234,13 +261,24 @@ auto const based_literal = x3::rule<struct based_literal_class, ast::decimal_lit
 auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal_literal>{ "decimal literal" } =
     x3::attr(10U) >> (real | integer);
 
+// BNF: decimal_literal | based_literal
 auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstract_literal>{ "based or decimal abstract literal" } =
     based_literal | decimal_literal;
 
-auto const grammar = x3::rule<struct grammar_class, ast::abstract_literals>{ "literal" } =
+// BNF: base_specifier " [ bit_value ] "
+auto const bit_string_literal = x3::rule<struct bit_string_literal_class, ast::bit_string_literal>{ "bit string literal" } =
+      (x3::omit[ char_("Bb") >> x3::expect['"'] ] >> x3::attr(2)
+        >> mandatory<std::string>(lit('"') >> -bin_charset >> lit('"'), "sequence of binary digits"))
+    | (x3::omit[ char_("Xx") >> x3::expect['"'] ] >> x3::attr(16)
+        >> mandatory<std::string>(lit('"') >> -hex_charset >> lit('"'), "sequence of hexadecimal digits"))
+    | (x3::omit[ char_("Oo") >> x3::expect['"'] ] >> x3::attr(8)
+        >> mandatory<std::string>(lit('"') >> -oct_charset >> lit('"'), "sequence of octal digits"))
+    ;
+
+auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } =
     x3::skip(x3::space | comment)[
           *(lit("X :=")
-        >> mandatory<ast::abstract_literal>((based_literal | decimal_literal), "based or decimal abstract literal") 
+        >> mandatory<ast::literal>((abstract_literal | bit_string_literal), "literal")
         >> x3::expect[';'])
     ];
 
@@ -263,16 +301,18 @@ int main()
     X := 42.42;
     X := 2.2E-6;
     X := 1e+3;
+    // bit string literal
+    X := b"1000_0001";
+    X := x"AFFE_CAFFE";
     // failure test
-    X := 2##;          // - based literal real or integer type
-    // failure
+    X := 2##;          // -> based literal real or integer type
     X := 3#011#;       // base not supported
     X := 2#120#1;      // wrong char set for binary
     X := 10#42#666;    // exp can't fit double (e308)
     X := 8#1#e1        // forgot ';' - otherwise ok
     X := 8#2#          // also forgot ';' - otherwise ok
     X := 16#1.2#e;     // forgot exp num
-    // ok, just to test success afterwards
+    // ok, just to test error recovery afterwards
     X := 10#42.666#e4711;
 )";
 
@@ -284,7 +324,7 @@ int main()
             grammar >> x3::eoi
         ];
 
-        ast::abstract_literals literals;
+        ast::literals literals;
         bool parse_ok = x3::parse(input.begin(), input.end(), grammar_, literals);
         std::cout << fmt::format("parse ok is '{}', numeric literals:\n", parse_ok);
         for(auto const& lit: literals) {
@@ -299,3 +339,11 @@ int main()
 
 // https://stackoverflow.com/search?q=user%3A85371+x3+parser_base
 // https://stackoverflow.com/questions/49722452/combining-rules-at-runtime-and-returning-rules/49722855#49722855
+
+/*
+ stateful context x3::width[]
+
+[Boost spirit x3 - lazy parser](https://stackoverflow.com/questions/60171119/boost-spirit-x3-lazy-parser/60176802#60176802)
+[Boost Spirit X3 cannot compile repeat directive with variable factor](https://stackoverflow.com/questions/33624149/boost-spirit-x3-cannot-compile-repeat-directive-with-variable-factor/33627991#33627991)
+=> https://coliru.stacked-crooked.com/a/f778d7b2e11cfcb5
+*/
