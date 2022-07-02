@@ -122,11 +122,11 @@ namespace {
 
 // [Custom error on rule level? #657](https://github.com/boostorg/spirit/issues/657)
 // for different error recovery strategies
-//template <typename RuleID>
+template <typename RuleID>
 struct my_error_handler { // try to recover and continue to parse
     template <typename It, typename Ctx>
     auto on_error(It& first, It last, x3::expectation_failure<It> const& e, Ctx const& ctx) const {
-        //std::cerr << "(" << typeid(RuleID).name() << " error handler fired) ";
+        std::cerr << "error handler for RuleID: '" << typeid(RuleID).name() << "'\n";
         auto& error_handler = x3::get<x3::error_handler_tag>(ctx);
         std::string message = "Error! Expecting " + e.which() + " here:";
         error_handler(e.where(), message);
@@ -210,15 +210,15 @@ struct literal_base_type : x3::parser<literal_base_type<Base, AttributeT>> {
 
 // [How do I get which() to work correctly in boost spirit x3 expectation_failure?](
 // https://stackoverflow.com/questions/71281614/how-do-i-get-which-to-work-correctly-in-boost-spirit-x3-expectation-failure)
-template <typename T = x3::unused_type>
+template <typename RuleID, typename AttributeT = x3::unused_type>
 auto as(auto p, char const* name = typeid(decltype(p)).name()) {
-    using tag = my_error_handler;
-    return x3::rule<tag, T>{ name } = p;
+    using tag = my_error_handler<RuleID>;
+    return x3::rule<tag, AttributeT>{ name } = p;
 }
 
-template <typename T>
+template <typename RuleID, typename AttributeT>
 auto mandatory(auto p, char const* name = typeid(decltype(p)).name()) {
-    return x3::expect[ as<T>(p, name) ];
+    return x3::expect[ as<RuleID, AttributeT>(p, name) ];
 }
 
 using x3::char_;
@@ -254,7 +254,7 @@ auto const integer = x3::rule<struct _, ast::integer_type>{ "literal integer" } 
 // BNF: based_literal := base # based_integer [ . based_integer ] # [ exponent ]
 auto const based_literal = x3::rule<struct based_literal_class, ast::decimal_literal>{ "based literal" } =
     x3::lexeme[
-           base >> '#' >> mandatory<ast::based_literal::num_type>( real | integer, "based literal real or integer type")
+           base >> '#' >> mandatory<based_literal_class, ast::based_literal::num_type>( real | integer, "based literal real or integer type")
     ];
 
 // BNF: decimal_literal := integer [ . integer ] [ exponent ]
@@ -268,21 +268,23 @@ auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstr
 // BNF: base_specifier " [ bit_value ] "
 auto const bit_string_literal = x3::rule<struct bit_string_literal_class, ast::bit_string_literal>{ "bit string literal" } =
       (x3::omit[ char_("Bb") >> x3::expect['"'] ] >> x3::attr(2)
-        >> mandatory<std::string>(lit('"') >> -bin_charset >> lit('"'), "sequence of binary digits"))
+        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -bin_charset >> lit('"'), "sequence of binary digits"))
     | (x3::omit[ char_("Xx") >> x3::expect['"'] ] >> x3::attr(16)
-        >> mandatory<std::string>(lit('"') >> -hex_charset >> lit('"'), "sequence of hexadecimal digits"))
+        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -hex_charset >> lit('"'), "sequence of hexadecimal digits"))
     | (x3::omit[ char_("Oo") >> x3::expect['"'] ] >> x3::attr(8)
-        >> mandatory<std::string>(lit('"') >> -oct_charset >> lit('"'), "sequence of octal digits"))
+        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -oct_charset >> lit('"'), "sequence of octal digits"))
     ;
 
 auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } =
     x3::skip(x3::space | comment)[
           *(lit("X :=")
-        >> mandatory<ast::literal>((abstract_literal | bit_string_literal), "literal")
+        >> mandatory<grammar_class, ast::literal>((abstract_literal | bit_string_literal), "literal")
         >> x3::expect[';'])
     ];
 
-struct grammar_class : my_error_handler {};
+struct based_literal_class : my_error_handler<based_literal_class> {};
+struct bit_string_literal_class : my_error_handler<bit_string_literal_class> {};
+struct grammar_class : my_error_handler<grammar_class> {};
 
 } // namespace
 
