@@ -121,6 +121,7 @@ BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, integer)
 namespace {
 
 // [Custom error on rule level? #657](https://github.com/boostorg/spirit/issues/657)
+// https://coliru.stacked-crooked.com/a/7fd3fbc8b2452590
 // for different error recovery strategies
 template <typename RuleID>
 struct my_error_handler { // try to recover and continue to parse
@@ -221,6 +222,26 @@ auto mandatory(auto p, char const* name = typeid(decltype(p)).name()) {
     return x3::expect[ as<RuleID, AttributeT>(p, name) ];
 }
 
+// [Getting custom error on rule level using Spirit X3](
+//  https://stackoverflow.com/questions/72841446/getting-custom-error-on-rule-level-using-spirit-x3)
+template <typename RuleID, typename AttributeT>
+struct mandatory_type {
+    template <typename Expr>
+    auto with_error_handler(Expr&& expr, char const* name = typeid(decltype(expr)).name()) const {
+        using tag = my_error_handler<RuleID>;
+        return x3::rule<tag, AttributeT>{ name } = x3::as_parser(std::forward<Expr>(expr));
+    }
+    template <typename Expr>
+    auto operator()(Expr&& expr, char const* name = typeid(decltype(expr)).name()) const {
+        return x3::expect[ with_error_handler<RuleID, AttributeT>(expr, name) ];
+    }
+};
+template <typename RuleID, typename T> static const mandatory_type<RuleID, T> mandatory_ = {};
+
+struct based_literal_class;
+struct bit_string_literal_class;
+struct grammar_class;
+
 using x3::char_;
 using x3::lit;
 
@@ -266,6 +287,8 @@ auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstr
     based_literal | decimal_literal;
 
 // BNF: base_specifier " [ bit_value ] "
+// [Boost spirit x3 - lazy parser with compile time known parsers, referring to a previously matched value](
+//  https://stackoverflow.com/questions/72833517/boost-spirit-x3-lazy-parser-with-compile-time-known-parsers-referring-to-a-pr)
 auto const bit_string_literal = x3::rule<struct bit_string_literal_class, ast::bit_string_literal>{ "bit string literal" } =
       (x3::omit[ char_("Bb") >> x3::expect['"'] ] >> x3::attr(2)
         >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -bin_charset >> lit('"'), "sequence of binary digits"))
