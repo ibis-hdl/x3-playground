@@ -247,13 +247,15 @@ using x3::lit;
 
 auto const comment = "//" >> *(char_ - x3::eol) >> x3::eol;
 
-auto const char_set = [](auto&& char_range, char const* name) {
-    return x3::rule<struct _, std::string>{ name } = x3::as_parser(
-        x3::raw[ char_(char_range) >> *(-lit("_") >> char_(char_range)) ]);
+auto const delimit_numeric_digits = [](auto&& char_range, char const* name) {
+    auto const cs = x3::char_(char_range);
+    return as<std::string>(x3::raw[ cs >> *('_' >> +cs | cs) ], name);
 };
-auto const bin_charset = char_set("01", "binary charset");
-auto const oct_charset = char_set("0-7", "octal charset");
-auto const hex_charset = char_set("0-9a-fA-F", "hexadecimal charset");
+auto const bin_digits = delimit_numeric_digits("01", "binary digits");
+auto const oct_digits = delimit_numeric_digits("0-7", "octal digits");
+auto const dec_digits = delimit_numeric_digits("0-9", "decimal digits");
+auto const hex_digits = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
+
 
 auto const base_ = literal_base_type{};
 auto const int_ =  based_integer_parser<10U, std::int32_t>{};
@@ -291,11 +293,11 @@ auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstr
 //  https://stackoverflow.com/questions/72833517/boost-spirit-x3-lazy-parser-with-compile-time-known-parsers-referring-to-a-pr)
 auto const bit_string_literal = x3::rule<struct bit_string_literal_class, ast::bit_string_literal>{ "bit string literal" } =
       (x3::omit[ char_("Bb") >> x3::expect['"'] ] >> x3::attr(2)
-        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -bin_charset >> lit('"'), "sequence of binary digits"))
+        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -bin_digits >> lit('"'), "sequence of binary digits"))
     | (x3::omit[ char_("Xx") >> x3::expect['"'] ] >> x3::attr(16)
-        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -hex_charset >> lit('"'), "sequence of hexadecimal digits"))
+        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -hex_digits >> lit('"'), "sequence of hexadecimal digits"))
     | (x3::omit[ char_("Oo") >> x3::expect['"'] ] >> x3::attr(8)
-        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -oct_charset >> lit('"'), "sequence of octal digits"))
+        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -oct_digits >> lit('"'), "sequence of octal digits"))
     ;
 
 auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } =
