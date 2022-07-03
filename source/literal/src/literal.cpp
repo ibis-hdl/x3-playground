@@ -31,21 +31,24 @@ namespace {
 // https://coliru.stacked-crooked.com/a/7fd3fbc8b2452590
 // for different error recovery strategies
 template <typename RuleID>
-struct my_error_handler { // try to recover and continue to parse
+struct my_error_handler {  // try to recover and continue to parse
     template <typename It, typename Ctx>
-    auto on_error(It& first, It last, x3::expectation_failure<It> const& e, Ctx const& ctx) const {
+    auto on_error(It& first, It last, x3::expectation_failure<It> const& e, Ctx const& ctx) const
+    {
         std::cerr << "error handler for RuleID: '" << typeid(RuleID).name() << "'\n";
         auto& error_handler = x3::get<x3::error_handler_tag>(ctx);
         std::string message = "Error! Expecting " + e.which() + " here:";
         error_handler(e.where(), message);
-        // FixMe: always true: e.where() == first ; see https://github.com/boostorg/spirit/issues/726
-        // our error resolution strategy
+        // FixMe: always true: e.where() == first ; see
+        // https://github.com/boostorg/spirit/issues/726 our error resolution strategy
         auto const position = std::string_view(first, last).find_first_of(";");
         if (position != std::string_view::npos) {
-            std::advance(first, position + 1); // move iter behind
-            std::cout << fmt::format("Rest:\n---8<---\n{}\n--->8---\n", std::string_view(first, last));
-        } else {
-            first = last; // no way here :(
+            std::advance(first, position + 1);  // move iter behind
+            std::cout << fmt::format("Rest:\n---8<---\n{}\n--->8---\n",
+                                     std::string_view(first, last));
+        }
+        else {
+            first = last;  // no way here :(
             return x3::error_handler_result::fail;
         }
         return x3::error_handler_result::accept;
@@ -55,14 +58,16 @@ struct my_error_handler { // try to recover and continue to parse
 // [How do I get which() to work correctly in boost spirit x3 expectation_failure?](
 // https://stackoverflow.com/questions/71281614/how-do-i-get-which-to-work-correctly-in-boost-spirit-x3-expectation-failure)
 template <typename RuleID, typename AttributeT = x3::unused_type>
-auto as(auto p, char const* name = typeid(decltype(p)).name()) {
+auto as(auto p, char const* name = typeid(decltype(p)).name())
+{
     using tag = my_error_handler<RuleID>;
     return x3::rule<tag, AttributeT>{ name } = p;
 }
 
 template <typename RuleID, typename AttributeT>
-auto mandatory(auto p, char const* name = typeid(decltype(p)).name()) {
-    return x3::expect[ as<RuleID, AttributeT>(p, name) ];
+auto mandatory(auto p, char const* name = typeid(decltype(p)).name())
+{
+    return x3::expect[as<RuleID, AttributeT>(p, name)];
 }
 
 // [Getting custom error on rule level using Spirit X3](
@@ -70,16 +75,19 @@ auto mandatory(auto p, char const* name = typeid(decltype(p)).name()) {
 template <typename RuleID, typename AttributeT>
 struct mandatory_type {
     template <typename Expr>
-    auto with_error_handler(Expr&& expr, char const* name = typeid(decltype(expr)).name()) const {
+    auto with_error_handler(Expr&& expr, char const* name = typeid(decltype(expr)).name()) const
+    {
         using tag = my_error_handler<RuleID>;
         return x3::rule<tag, AttributeT>{ name } = x3::as_parser(std::forward<Expr>(expr));
     }
     template <typename Expr>
-    auto operator()(Expr&& expr, char const* name = typeid(decltype(expr)).name()) const {
-        return x3::expect[ with_error_handler<RuleID, AttributeT>(expr, name) ];
+    auto operator()(Expr&& expr, char const* name = typeid(decltype(expr)).name()) const
+    {
+        return x3::expect[with_error_handler<RuleID, AttributeT>(expr, name)];
     }
 };
-template <typename RuleID, typename T> static const mandatory_type<RuleID, T> mandatory_ = {};
+template <typename RuleID, typename T>
+static const mandatory_type<RuleID, T> mandatory_ = {};
 
 struct based_literal_class;
 struct bit_string_literal_class;
@@ -87,6 +95,8 @@ struct grammar_class;
 
 using x3::char_;
 using x3::lit;
+
+// clang-format off
 
 auto const comment = "//" >> *(char_ - x3::eol) >> x3::eol;
 
@@ -157,7 +167,9 @@ struct based_literal_class : my_error_handler<based_literal_class> {};
 struct bit_string_literal_class : my_error_handler<bit_string_literal_class> {};
 struct grammar_class : my_error_handler<grammar_class> {};
 
-} // namespace
+// clang-format on
+
+}  // namespace
 
 int main()
 {
@@ -193,19 +205,19 @@ int main()
         using error_handler_type = x3::error_handler<decltype(input.begin())>;
         error_handler_type error_handler(input.begin(), input.end(), std::cerr);
 
-        auto const grammar_ = x3::with<x3::error_handler_tag>(error_handler) [
-            grammar >> x3::eoi
-        ];
+        auto const grammar_ = x3::with<x3::error_handler_tag>(error_handler)[grammar >> x3::eoi];
 
         ast::literals literals;
         bool parse_ok = x3::parse(input.begin(), input.end(), grammar_, literals);
         std::cout << fmt::format("parse ok is '{}', numeric literals:\n", parse_ok);
-        for(auto const& lit: literals) {
+        for (auto const& lit : literals) {
             std::cout << lit << '\n';
         }
-    } catch(std::exception const& e) {
+    }
+    catch (std::exception const& e) {
         std::cerr << fmt::format("caught {}\n", e.what());
-    } catch(...) {
+    }
+    catch (...) {
         std::cerr << "caught unexpected exception\n";
     }
 }
@@ -216,7 +228,9 @@ int main()
 /*
  stateful context x3::width[]
 
-[Boost spirit x3 - lazy parser](https://stackoverflow.com/questions/60171119/boost-spirit-x3-lazy-parser/60176802#60176802)
-[Boost Spirit X3 cannot compile repeat directive with variable factor](https://stackoverflow.com/questions/33624149/boost-spirit-x3-cannot-compile-repeat-directive-with-variable-factor/33627991#33627991)
+[Boost spirit x3 - lazy
+parser](https://stackoverflow.com/questions/60171119/boost-spirit-x3-lazy-parser/60176802#60176802)
+[Boost Spirit X3 cannot compile repeat directive with variable
+factor](https://stackoverflow.com/questions/33624149/boost-spirit-x3-cannot-compile-repeat-directive-with-variable-factor/33627991#33627991)
 => https://coliru.stacked-crooked.com/a/f778d7b2e11cfcb5
 */

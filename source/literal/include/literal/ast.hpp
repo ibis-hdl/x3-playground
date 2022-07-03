@@ -17,45 +17,48 @@ namespace ast {
 
 namespace x3 = boost::spirit::x3;
 
-template <typename... Types> using variant = x3::variant<Types...>;
-template <typename T>        using optional = boost::optional<T>;
+template <typename... Types>
+using variant = x3::variant<Types...>;
+template <typename T>
+using optional = boost::optional<T>;
 
-struct real_type : x3::position_tagged  {
+struct real_type : x3::position_tagged {
     // boost::iterator_range<Iter> later on
-    std::string             integer;    // base: 2,8,10,16
-    std::string             fractional; // base: 2,8,10,16
-    optional<std::int32_t>  exponent;
+    std::string integer;     // base: 2,8,10,16
+    std::string fractional;  // base: 2,8,10,16
+    optional<std::int32_t> exponent;
 };
 
-struct integer_type : x3::position_tagged  {
-    std::string             integer;    // base: 2,8,10,16
-    optional<std::uint32_t> exponent;   // positive only!
+struct integer_type : x3::position_tagged {
+    std::string integer;               // base: 2,8,10,16
+    optional<std::uint32_t> exponent;  // positive only!
 };
 
 struct based_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
-    std::uint32_t           base;
-    num_type                num;
+    std::uint32_t base;
+    num_type num;
     // e.g. https://coliru.stacked-crooked.com/a/652a879e37b4ea37
     // std::variant<RealT, IntT> const value() // lazy numeric conversion
 };
 
 struct decimal_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
-    std::uint32_t           base;
-    num_type                num;
+    std::uint32_t base;
+    num_type num;
     // std::variant<RealT, IntT> const value() // lazy numeric conversion
 };
 
-// Note: The literal representation is needed, at the latest with VHDL 2008 
+// Note: The literal representation is needed, at the latest with VHDL 2008
 // where also literals like 12UX"F-" are possible.
-struct bit_string_literal : x3::position_tagged  {
-    std::uint32_t           base;
-    std::string             integer;    // base: 2,8,10,16
+struct bit_string_literal : x3::position_tagged {
+    std::uint32_t base;
+    std::string integer;  // base: 2,8,10,16
 };
 
 using abstract_literal = variant<based_literal, decimal_literal>;
-//using literal = variant<numeric_literal, enumeration_literal, string_literal, bit_string_literal>;
+// using literal = variant<numeric_literal, enumeration_literal, string_literal,
+// bit_string_literal>;
 using literal = variant<abstract_literal, bit_string_literal>;
 using literals = std::vector<literal>;
 
@@ -67,7 +70,7 @@ std::ostream& operator<<(std::ostream& os, ast::abstract_literal const& l);
 std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& l);
 std::ostream& operator<<(std::ostream& os, ast::literal const& l);
 
-} // namespace ast
+}  // namespace ast
 
 BOOST_FUSION_ADAPT_STRUCT(ast::real_type, integer, fractional, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::integer_type, integer, exponent)

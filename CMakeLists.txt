@@ -29,6 +29,32 @@ find_package(fmt 8.1.1 REQUIRED)
 find_package(range-v3 0.11.0 REQUIRED)
 find_package(Threads REQUIRED)
 
+
+if(CPM_SOURCE_CACHE)
+  set(CPM_DOWNLOAD_LOCATION "${CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+elseif(DEFINED ENV{CPM_SOURCE_CACHE})
+  set(CPM_DOWNLOAD_LOCATION "$ENV{CPM_SOURCE_CACHE}/cpm/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+else()
+  set(CPM_DOWNLOAD_LOCATION "${CMAKE_BINARY_DIR}/cmake/CPM_${CPM_DOWNLOAD_VERSION}.cmake")
+endif()
+
+if(NOT (EXISTS "${CMAKE_BINARY_DIR}/CPM.cmake"))
+  message(STATUS "Downloading CPM.cmake to ${CPM_DOWNLOAD_LOCATION}")
+  file(DOWNLOAD https://github.com/TheLartians/CPM.cmake/releases/download/v0.35.1/CPM.cmake
+       "${CMAKE_BINARY_DIR}/CPM.cmake"
+       TLS_VERIFY ON
+  )
+endif()
+include("${CMAKE_BINARY_DIR}/CPM.cmake")
+
+CPMAddPackage(
+  NAME Format.cmake
+  VERSION 1.7.3
+  GITHUB_REPOSITORY TheLartians/Format.cmake
+  OPTIONS # skip cmake formatting - it's ugly
+          "FORMAT_SKIP_CMAKE YES"
+)
+
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)

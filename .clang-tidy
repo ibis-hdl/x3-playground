@@ -1,0 +1,36 @@
+---
+Checks: "-*,
+  boost-*,
+  cert-*,
+  -cert-err58-cpp,
+  clang-analyzer-*,
+  -concurrency-*,
+  cppcoreguidelines-*,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-avoid-magic-numbers,
+  misc-*,
+  -misc-no-recursion,
+  modernize-*,
+  -modernize-use-nodiscard,
+  -modernize-use-trailing-return-type,
+  readability-*,
+  -readability-magic-numbers,
+  -readability-redundant-access-specifiers,
+  performance-*,
+  bugprone-*
+"
+FormatStyle: file
+HeaderFilterRegex: '^((?!(/external/|\.?conan/data/|/boost/|/CLI/|/testsuite/)).)*$'
+HeaderFilterRegex: '*\.(hpp|h|.hpp.in)$'
+CheckOptions:
+  - key:   cppcoreguidelines-macro-usage.AllowedRegexp
+    value: ^(DEBUG_|TEST_|BOOST_TEST_)*
+  # common identifier, also '_', 'as' for Spirit.X3 grammar
+  - key:   readability-identifier-length.IgnoredVariableNames
+    value: ^(sv|ec|id|os|ss|_|as)$
+  - key:   readability-identifier-length.IgnoredParameterNames
+    value: ^(sv|ec|id|os|ss|sz)$
+  - key:   readability-identifier-length.IgnoredExceptionVariableNames
+    value: ^ex?$
+...

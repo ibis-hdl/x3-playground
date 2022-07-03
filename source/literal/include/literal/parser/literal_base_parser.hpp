@@ -17,9 +17,8 @@ namespace parser {
 namespace x3 = boost::spirit::x3;
 
 // FixMe: Specialize, that the base can't be changed!
-template<unsigned Base = 10U, typename AttributeT = std::uint32_t>
+template <unsigned Base = 10U, typename AttributeT = std::uint32_t>
 struct literal_base_parser : x3::parser<literal_base_parser<Base, AttributeT>> {
-
     // base must be of type integer
     static_assert(std::is_integral<AttributeT>::value, "Integral required");
     // only positive bases are defined
@@ -27,9 +26,9 @@ struct literal_base_parser : x3::parser<literal_base_parser<Base, AttributeT>> {
 
     using attribute_type = AttributeT;
 
-    template<typename IteratorT, typename ContextT, typename RContextT>
+    template <typename IteratorT, typename ContextT, typename RContextT>
     bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-        [[maybe_unused]] RContextT const& rctx, AttributeT& base_attribute) const
+               [[maybe_unused]] RContextT const& rctx, AttributeT& base_attribute) const
     {
         skip_over(first, last, ctx);
         auto const begin = first;
@@ -43,7 +42,8 @@ struct literal_base_parser : x3::parser<literal_base_parser<Base, AttributeT>> {
         return true;
     }
 
-    bool supported_base(attribute_type base) const {
+    bool supported_base(attribute_type base) const
+    {
         if (base == 2 || base == 8 || base == 10 || base == 16) {
             return true;
         }
@@ -51,4 +51,4 @@ struct literal_base_parser : x3::parser<literal_base_parser<Base, AttributeT>> {
     }
 };
 
-} // namespace parser
+}  // namespace parser
