@@ -1,6 +1,13 @@
-// https://coliru.stacked-crooked.com/a/c4551ac14ca71175
-// https://godbolt.org/z/fYExGrYzd
+//
+// Copyright (c) 2017-2022 Olaf (<ibis-hdl@users.noreply.github.com>).
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+
 //#define BOOST_SPIRIT_X3_DEBUG
+#include <literal/ast.hpp>
+#include <literal/parser/integer_parser.hpp>
+#include <literal/parser/literal_base_parser.hpp>
+
 #include <boost/spirit/home/x3.hpp>
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
@@ -17,106 +24,6 @@
 #include <iomanip>
 
 namespace x3 = boost::spirit::x3;
-
-namespace ast {
-
-template <typename... Types> using variant = x3::variant<Types...>;
-template <typename T>        using optional = boost::optional<T>;
-
-struct real_type : x3::position_tagged  {
-    // boost::iterator_range<Iter> later on
-    std::string             integer;    // base: 2,8,10,16
-    std::string             fractional; // base: 2,8,10,16
-    optional<std::int32_t>  exponent;
-};
-struct integer_type : x3::position_tagged  {
-    std::string             integer;    // base: 2,8,10,16
-    optional<std::uint32_t> exponent;   // positive only!
-};
-struct based_literal : x3::position_tagged {
-    using num_type = variant<real_type, integer_type>;
-    std::uint32_t           base;
-    num_type                num;
-    // e.g. https://coliru.stacked-crooked.com/a/652a879e37b4ea37
-    // std::variant<RealT, IntT> const value() // lazy numeric conversion
-};
-struct decimal_literal : x3::position_tagged {
-    using num_type = variant<real_type, integer_type>;
-    std::uint32_t           base;
-    num_type                num;
-    // std::variant<RealT, IntT> const value() // lazy numeric conversion
-};
-struct bit_string_literal : x3::position_tagged  {
-    std::uint32_t           base;
-    std::string             integer;    // base: 2,8,10,16
-};
-using abstract_literal = variant<based_literal, decimal_literal>;
-//using literal = variant<numeric_literal, enumeration_literal, string_literal, bit_string_literal>;
-using literal = variant<abstract_literal, bit_string_literal>;
-using literals = std::vector<literal>;
-
-std::ostream& operator<<(std::ostream& os, ast::real_type const& r) {
-    os << fmt::format("#{}.{}#e{}", r.integer, r.fractional, r.exponent.value_or(1));
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, ast::integer_type const& i) {
-    os << fmt::format("#{}#e{}", i.integer, i.exponent.value_or(1));
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, ast::based_literal const& l) {
-    struct v {
-        void operator()(ast::real_type const& r) const { os << r; }
-        void operator()(ast::integer_type const& i) const { os << i; }
-        std::ostream& os;
-        v(std::ostream& os_) : os{ os_ } {}
-    } const v(os);
-    os << l.base;
-    boost::apply_visitor(v, l.num);
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, ast::decimal_literal const& l) {
-    struct v {
-        void operator()(ast::real_type const& r) const { os << r; }
-        void operator()(ast::integer_type const& i) const { os << i; }
-        std::ostream& os;
-        v(std::ostream& os_) : os{ os_ } {}
-    } const v(os);
-    os << l.base;
-    boost::apply_visitor(v, l.num);
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, ast::abstract_literal const& l) {
-    struct v {
-        void operator()(ast::based_literal b) const { os << b; }
-        void operator()(ast::decimal_literal d) const { os << d; }
-        std::ostream& os;
-        v(std::ostream& os_) : os{ os_ } {}
-    } const v(os);
-    boost::apply_visitor(v, l);
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& l) {
-    os << fmt::format(R"({}"{}")", l.base, l.integer);
-    return os;
-}
-std::ostream& operator<<(std::ostream& os, ast::literal const& l) {
-    struct v {
-        void operator()(ast::abstract_literal a) const { os << a; }
-        void operator()(ast::bit_string_literal b) const { os << b; }
-        std::ostream& os;
-        v(std::ostream& os_) : os{ os_ } {}
-    } const v(os);
-    boost::apply_visitor(v, l);
-    return os;
-}
-
-} // namespace ast
-
-BOOST_FUSION_ADAPT_STRUCT(ast::real_type, integer, fractional, exponent)
-BOOST_FUSION_ADAPT_STRUCT(ast::integer_type, integer, exponent)
-BOOST_FUSION_ADAPT_STRUCT(ast::based_literal, base, num)
-BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, num, base)
-BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, integer)
 
 namespace {
 
@@ -142,70 +49,6 @@ struct my_error_handler { // try to recover and continue to parse
             return x3::error_handler_result::fail;
         }
         return x3::error_handler_result::accept;
-    }
-};
-
-template<unsigned Base, typename AttributeT>
-struct based_integer_parser : x3::parser<based_integer_parser<Base, AttributeT>> {
-
-    static_assert(std::is_integral<AttributeT>::value, "Integral required.");
-
-    using attribute_type = AttributeT;
-
-    auto constexpr parser() const {
-        if constexpr (std::is_unsigned<AttributeT>::value) {
-            return x3::uint_parser<AttributeT, Base>{};
-        }
-        else {
-            return x3::int_parser<AttributeT, Base>{};
-        }
-    }
-
-    template<typename IteratorT, typename ContextT, typename RContextT>
-    bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-        [[maybe_unused]] RContextT const& rctx, AttributeT& base_attribute) const
-    {
-        namespace views = ranges::views;
-        skip_over(first, last, ctx);
-        auto const begin = first;
-        std::string_view const literal_sv{ first, last };
-        auto view = literal_sv | views::filter([](char chr) { return chr != '_'; });
-        bool const parse_ok = x3::parse(std::begin(view), std::end(view), parser(), base_attribute);
-
-        if (!parse_ok) {
-            first = begin; // rewind iter
-            return false;
-        }
-        return true;
-    }
-};
-
-template<unsigned Base = 10U, typename AttributeT = std::uint32_t>
-struct literal_base_type : x3::parser<literal_base_type<Base, AttributeT>> {
-
-    using attribute_type = AttributeT;
-
-    template<typename IteratorT, typename ContextT, typename RContextT>
-    bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-        [[maybe_unused]] RContextT const& rctx, AttributeT& base_attribute) const
-    {
-        skip_over(first, last, ctx);
-        auto const begin = first;
-        static auto const parser = based_integer_parser<Base, attribute_type>{};
-        bool const parse_ok = x3::parse(first, last, parser, base_attribute);
-
-        if (!parse_ok || !supported_base(base_attribute)) {
-            first = begin;
-            return false;
-        }
-        return true;
-    }
-
-    bool supported_base(attribute_type base) const {
-        if (base == 2 || base == 8 || base == 10 || base == 16) {
-            return true;
-        }
-        return false;
     }
 };
 
@@ -257,9 +100,9 @@ auto const dec_digits = delimit_numeric_digits("0-9", "decimal digits");
 auto const hex_digits = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
 
 
-auto const base_ = literal_base_type{};
-auto const int_ =  based_integer_parser<10U, std::int32_t>{};
-auto const uint_ = based_integer_parser<10U, std::uint32_t>{};
+auto const base_ = parser::literal_base_parser{};
+auto const int_ =  parser::integer_parser<10U, std::int32_t>{};
+auto const uint_ = parser::integer_parser<10U, std::uint32_t>{};
 
 auto const base = x3::rule<struct _, std::uint32_t>{ "literal base" } =
     base_;
