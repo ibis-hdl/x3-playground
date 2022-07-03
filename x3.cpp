@@ -42,7 +42,7 @@ struct based_literal : x3::position_tagged {
 };
 struct decimal_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
-    std::uint32_t           base = 10; // dummy
+    std::uint32_t           base;
     num_type                num;
     // std::variant<RealT, IntT> const value() // lazy numeric conversion
 };
@@ -115,7 +115,7 @@ std::ostream& operator<<(std::ostream& os, ast::literal const& l) {
 BOOST_FUSION_ADAPT_STRUCT(ast::real_type, integer, fractional, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::integer_type, integer, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::based_literal, base, num)
-BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, base, num)
+BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, num, base)
 BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, integer)
 
 namespace {
@@ -275,16 +275,19 @@ auto const integer = x3::rule<struct _, ast::integer_type>{ "literal integer" } 
     based_digit >> '#' >> -unsigned_exp;
 
 // BNF: based_literal := base # based_integer [ . based_integer ] # [ exponent ]
-auto const based_literal = x3::rule<struct based_literal_class, ast::decimal_literal>{ "based literal" } =
+auto const based_literal = x3::rule<struct based_literal_class, ast::based_literal>{ "based literal" } =
     x3::lexeme[
            base >> '#' >> mandatory<based_literal_class, ast::based_literal::num_type>( real | integer, "based literal real or integer type")
     ];
 
 // BNF: decimal_literal := integer [ . integer ] [ exponent ]
 auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal_literal>{ "decimal literal" } =
-    x3::attr(10U) >> (real | integer);
+    (real | integer) >> x3::attr(10U);
 
 // BNF: decimal_literal | based_literal
+// Note: {decimal, based}_literal's AST nodes does have same memory layout now!
+// This would allow to treat them as abstract_literal without variant type; only
+// parsers would be different!
 auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstract_literal>{ "based or decimal abstract literal" } =
     based_literal | decimal_literal;
 
