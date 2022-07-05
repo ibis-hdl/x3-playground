@@ -26,13 +26,22 @@ namespace ast {
 
 std::ostream& operator<<(std::ostream& os, ast::real_type const& r)
 {
-    os << fmt::format("#{}.{}#e{}", r.integer, r.fractional, r.exponent.value_or(1));
+    os << fmt::format("#{}.{}", r.integer, r.fractional);
+    if (!r.exponent.empty()) {
+        os << fmt::format("#e{}", r.exponent);
+    }
+    if (r.value) {
+        os << fmt::format(" ({}r)", r.value.value());
+    }
     return os;
 }
 
 std::ostream& operator<<(std::ostream& os, ast::integer_type const& i)
 {
-    os << fmt::format("#{}#e{}", i.integer, i.exponent.value_or(1));
+    os << fmt::format("#{}#e{}", i.integer, i.exponent);
+    if (i.value) {
+        os << fmt::format(" ({}i)", i.value.value());
+    }
     return os;
 }
 
@@ -65,6 +74,7 @@ std::ostream& operator<<(std::ostream& os, ast::decimal_literal const& l)
     } const v(os);
     os << l.base;
     boost::apply_visitor(v, l.num);
+
     return os;
 }
 
@@ -85,7 +95,10 @@ std::ostream& operator<<(std::ostream& os, ast::abstract_literal const& l)
 
 std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& l)
 {
-    os << fmt::format(R"({}"{}" ({}))", l.base, l.literal, l.value);
+    os << fmt::format(R"({}"{}")", l.base, l.literal);
+    if (l.value) {
+        os << fmt::format(" ({}d)", l.value.value());
+    }
     return os;
 }
 

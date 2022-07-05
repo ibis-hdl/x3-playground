@@ -5,6 +5,7 @@
 
 #include <literal/ast.hpp>
 #include <literal/parser/literal_base_parser.hpp>
+#include <literal/parser/char_parser.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 
@@ -78,20 +79,6 @@ static const do_lazy_type<T> do_lazy{};
 
 }  // namespace detail
 
-namespace char_parser {
-
-auto const delimit_numeric_digits = [](auto&& char_range, char const* name) {
-    auto cs = x3::char_(char_range);
-    return detail::as<std::string>(x3::raw[cs >> *('_' >> +cs | cs)], name);
-};
-
-auto const bin_digits = delimit_numeric_digits("01", "binary digits");
-auto const oct_digits = delimit_numeric_digits("0-7", "octal digits");
-auto const dec_digits = delimit_numeric_digits("0-9", "decimal digits");
-auto const hex_digits = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
-
-}  // namespace char_parser
-
 // BNF: bit_string_literal ::= base_specifier " [ bit_value ] "
 struct bit_string_literal : x3::parser<bit_string_literal> {
     using attribute_type = ast::bit_string_literal;
@@ -123,6 +110,8 @@ struct bit_string_literal : x3::parser<bit_string_literal> {
         auto const base_specifier = x3::rule<struct _, std::uint32_t>{ "base specifier" } =
             x3::no_case[ base_id ];
 
+        // [Boost spirit x3 - lazy parser with compile time known parsers, referring to a previously matched value](
+        //  https://stackoverflow.com/questions/72833517/boost-spirit-x3-lazy-parser-with-compile-time-known-parsers-referring-to-a-pr)
         auto const grammar = x3::rule<struct _, attribute_type, true>{ "bit string literal" } =
             x3::with<rule_type>( rule_type{} )[
                 x3::lexeme[
@@ -151,7 +140,7 @@ struct bit_string_literal : x3::parser<bit_string_literal> {
         { "x", 16 },
     }, "base id");
     // clang-format on
-    
+
 private:
     template <typename TargetT>
     std::optional<TargetT> convert(auto range, unsigned base) const
@@ -168,6 +157,8 @@ private:
         TargetT result;
         auto const [ptr, errc] = std::from_chars(pruned.data(), end, result, base);
 
+        // FixMe: move extra header, see convert.hpp
+#if !defined(__clang__)
         auto const ec = [=]() {
             if (ptr != end) {
                 // something of input is wrong, outer parser fails
@@ -179,7 +170,18 @@ private:
             }
             return std::error_code{};
         }();
-
+#else
+        std::error_code ec;
+        if (ptr != end) {
+            // something of input is wrong, outer parser fails
+            ec = std::make_error_code(std::errc::invalid_argument);
+        }
+        if (errc != std::errc{}) {
+            // maybe errc::result_out_of_range, errc::invalid_argument ...
+            ec = std::make_error_code(errc);
+        }
+        ec = std::error_code{};
+#endif
         if (ec) {
             std::cerr << "bit_string_literal error: " << ec.message() << '\n';
             return {};

@@ -70,6 +70,26 @@
         "xlocmes": "cpp",
         "xtree": "cpp",
         "span": "cpp",
-        "charconv": "cpp"
+        "charconv": "cpp",
+        "chrono": "cpp",
+        "csignal": "cpp",
+        "format": "cpp",
+        "forward_list": "cpp",
+        "fstream": "cpp",
+        "mutex": "cpp",
+        "numeric": "cpp",
+        "random": "cpp",
+        "ratio": "cpp",
+        "stop_token": "cpp",
+        "strstream": "cpp",
+        "thread": "cpp",
+        "*.tcc": "cpp",
+        "condition_variable": "cpp",
+        "memory_resource": "cpp",
+        "string_view": "cpp",
+        "numbers": "cpp",
+        "semaphore": "cpp",
+        "cfenv": "cpp",
+        "cinttypes": "cpp"
     }
 }

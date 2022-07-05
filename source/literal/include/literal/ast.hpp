@@ -13,6 +13,7 @@
 #include <string>
 #include <string_view>
 #include <optional>
+#include <variant>
 #include <vector>
 
 namespace ast {
@@ -28,18 +29,25 @@ struct real_type : x3::position_tagged {
     // boost::iterator_range<Iter> later on
     std::string integer;     // base: 2,8,10,16
     std::string fractional;  // base: 2,8,10,16
-    optional<std::int32_t> exponent;
+    std::string exponent;
+    // numeric representation
+    using value_type = double;
+    std::optional<value_type> value;
 };
 
 struct integer_type : x3::position_tagged {
-    std::string integer;               // base: 2,8,10,16
-    optional<std::uint32_t> exponent;  // positive only!
+    std::string integer;   // base: 2,8,10,16
+    std::string exponent;  // positive only!
+    // numeric representation
+    using value_type = std::uint32_t;
+    std::optional<value_type> value;
 };
 
 struct based_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
     std::uint32_t base;
     num_type num;
+    // numeric representation
     // e.g. https://coliru.stacked-crooked.com/a/652a879e37b4ea37
     // std::variant<RealT, IntT> const value() // lazy numeric conversion
 };
@@ -48,7 +56,9 @@ struct decimal_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
     std::uint32_t base;
     num_type num;
-    // std::variant<RealT, IntT> const value() // lazy numeric conversion
+    // numeric representation
+    // using value_type = std::variant<std::monostate, double, std::uint32_t>;
+    // value_type value;
 };
 
 // Note: The literal representation is needed, at the latest with VHDL 2008
@@ -56,6 +66,7 @@ struct decimal_literal : x3::position_tagged {
 struct bit_string_literal : x3::position_tagged {
     std::uint32_t base;
     std::string literal;  // base: 2,8,10,16
+    // numeric representation
     using value_type = std::uint32_t;
     std::optional<value_type> value;
 };

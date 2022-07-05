@@ -7,6 +7,7 @@
 #include <literal/ast.hpp>
 #include <literal/parser/integer_parser.hpp>
 #include <literal/parser/literal_base_parser.hpp>
+#include <literal/parser/decimal_literal.hpp>
 #include <literal/parser/bit_string_literal.hpp>
 
 #include <boost/spirit/home/x3.hpp>
@@ -100,14 +101,10 @@ using x3::lit;
 
 auto const comment = "//" >> *(char_ - x3::eol) >> x3::eol;
 
-auto const delimit_numeric_digits = [](auto&& char_range, char const* name) {
-    auto const cs = x3::char_(char_range);
-    return as<std::string>(x3::raw[ cs >> *('_' >> +cs | cs) ], name);
-};
-auto const bin_digits = delimit_numeric_digits("01", "binary digits");
-auto const oct_digits = delimit_numeric_digits("0-7", "octal digits");
-auto const dec_digits = delimit_numeric_digits("0-9", "decimal digits");
-auto const hex_digits = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
+using parser::char_parser::bin_digits;
+using parser::char_parser::oct_digits;
+using parser::char_parser::dec_digits;
+using parser::char_parser::hex_digits;
 
 
 auto const base_ = parser::literal_base_parser{};
@@ -135,7 +132,8 @@ auto const based_literal = x3::rule<struct based_literal_class, ast::based_liter
 
 // BNF: decimal_literal := integer [ . integer ] [ exponent ]
 auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal_literal>{ "decimal literal" } =
-    (real | integer) >> x3::attr(10U);
+    parser::decimal_literal;
+    //(real | integer) >> x3::attr(10U);
 
 // BNF: decimal_literal | based_literal
 // Note: {decimal, based}_literal's AST nodes does have same memory layout now!
@@ -143,20 +141,6 @@ auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal
 // parsers would be different!
 auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstract_literal>{ "based or decimal abstract literal" } =
     based_literal | decimal_literal;
-
-#if 0 // <literal/parser/bit_string_literal.hpp>
-// BNF: base_specifier " [ bit_value ] "
-// [Boost spirit x3 - lazy parser with compile time known parsers, referring to a previously matched value](
-//  https://stackoverflow.com/questions/72833517/boost-spirit-x3-lazy-parser-with-compile-time-known-parsers-referring-to-a-pr)
-auto const bit_string_literal = x3::rule<struct bit_string_literal_class, ast::bit_string_literal>{ "bit string literal" } =
-      (x3::omit[ char_("Bb") >> x3::expect['"'] ] >> x3::attr(2)
-        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -bin_digits >> lit('"'), "sequence of binary digits"))
-    | (x3::omit[ char_("Xx") >> x3::expect['"'] ] >> x3::attr(16)
-        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -hex_digits >> lit('"'), "sequence of hexadecimal digits"))
-    | (x3::omit[ char_("Oo") >> x3::expect['"'] ] >> x3::attr(8)
-        >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -oct_digits >> lit('"'), "sequence of octal digits"))
-    ;
-#endif
 
 auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } =
     x3::skip(x3::space | comment)[
@@ -192,9 +176,6 @@ std::string inspect(Expr const& expr)
 
 int main()
 {
-    // std::cout << boost::typeindex::type_id<decltype(parser::hex_digits)>().pretty_name() << "\n";
-    // std::cout << inspect((parser::hex_digits)) << "\n";
-
     using namespace ast;
 
     std::string const input = R"(
@@ -203,14 +184,15 @@ int main()
     X := x"AFFE_Cafe";
     X := O"777";
     //X := X""; // FixMe: empty also allowed
-    // decimal literal     FixMe = number >> !lit('#') neg. lookup
+    // decimal literal
     X := 42;
+    X := 1e+3;
     X := 42.42;
     X := 2.2E-6;
-    X := 1e+3;
+    X := 3.14e+1;
     // based literal
-    X := 0_2#1100_0001#;
     X := 8#1_20#E1;
+    X := 0_2#1100_0001#;
     X := 10#42#E42;
     X := 16#AFFE_1.0Cafe#e-10;
     // failure test
