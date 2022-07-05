@@ -7,14 +7,12 @@
 #include <literal/ast.hpp>
 #include <literal/parser/integer_parser.hpp>
 #include <literal/parser/literal_base_parser.hpp>
+#include <literal/parser/bit_string_literal.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
 #include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
 #include <boost/spirit/home/x3/support/utility/annotate_on_success.hpp>
-#include <boost/fusion/adapted/struct.hpp>
-#include <boost/spirit/home/x3/support/ast/variant.hpp>
-#include <boost/optional.hpp>
 #include <fmt/format.h>
 #include <range/v3/view/filter.hpp>
 #include <string>
@@ -22,6 +20,8 @@
 #include <vector>
 #include <iostream>
 #include <iomanip>
+
+#include <boost/type_index.hpp>
 
 namespace x3 = boost::spirit::x3;
 
@@ -144,6 +144,7 @@ auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal
 auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstract_literal>{ "based or decimal abstract literal" } =
     based_literal | decimal_literal;
 
+#if 0 // <literal/parser/bit_string_literal.hpp>
 // BNF: base_specifier " [ bit_value ] "
 // [Boost spirit x3 - lazy parser with compile time known parsers, referring to a previously matched value](
 //  https://stackoverflow.com/questions/72833517/boost-spirit-x3-lazy-parser-with-compile-time-known-parsers-referring-to-a-pr)
@@ -155,11 +156,14 @@ auto const bit_string_literal = x3::rule<struct bit_string_literal_class, ast::b
     | (x3::omit[ char_("Oo") >> x3::expect['"'] ] >> x3::attr(8)
         >> mandatory<bit_string_literal_class, std::string>(lit('"') >> -oct_digits >> lit('"'), "sequence of octal digits"))
     ;
+#endif
 
 auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } =
     x3::skip(x3::space | comment)[
           *(lit("X :=")
-        >> mandatory<grammar_class, ast::literal>((abstract_literal | bit_string_literal), "literal")
+        >> mandatory<grammar_class, ast::literal>(
+            (abstract_literal | parser::bit_string_literal)
+           , "literal")
         >> x3::expect[';'])
     ];
 
@@ -171,24 +175,42 @@ struct grammar_class : my_error_handler<grammar_class> {};
 
 }  // namespace
 
+template<typename T>
+void the_type() {
+    //char const* name = typeid(T).name()
+    //std::cout << boost::core::demangle( name ) << '\n';
+    std::cout << boost::typeindex::type_id<T>().pretty_name() << "\n";
+}
+
+template <typename Expr>
+std::string inspect(Expr const& expr) {
+    using A = typename x3::traits::attribute_of<Expr, x3::unused_type>::type;
+    return boost::core::demangle(typeid(A).name());
+}
+
 int main()
 {
+    //std::cout << boost::typeindex::type_id<decltype(parser::hex_digits)>().pretty_name() << "\n";
+    //std::cout << inspect((parser::hex_digits)) << "\n";
+
     using namespace ast;
 
     std::string const input = R"(
-    // based literal
-    X := 0_2#1100_0001#;
-    X := 8#1_20#E1;
-    X := 10#42#E42;
-    X := 16#AFFE_1.0CAFE#e-10;
-    // decimal literal
+    // bit string literal
+    X := b"1000_0001";
+    X := x"AFFE_Cafe";
+    X := O"777";
+    //X := X""; // FixMe: empty also allowed
+    // decimal literal     FixMe = number >> !lit('#') neg. lookup
     X := 42;
     X := 42.42;
     X := 2.2E-6;
     X := 1e+3;
-    // bit string literal
-    X := b"1000_0001";
-    X := x"AFFE_CAFFE";
+    // based literal
+    X := 0_2#1100_0001#;
+    X := 8#1_20#E1;
+    X := 10#42#E42;
+    X := 16#AFFE_1.0Cafe#e-10;
     // failure test
     X := 2##;          // -> based literal real or integer type
     X := 3#011#;       // base not supported

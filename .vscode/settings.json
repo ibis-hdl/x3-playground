@@ -69,6 +69,7 @@
         "xlocbuf": "cpp",
         "xlocmes": "cpp",
         "xtree": "cpp",
-        "span": "cpp"
+        "span": "cpp",
+        "charconv": "cpp"
     }
 }

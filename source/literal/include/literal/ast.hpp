@@ -9,8 +9,10 @@
 #include <boost/fusion/adapted/struct.hpp>
 #include <boost/spirit/home/x3/support/ast/variant.hpp>
 #include <boost/optional.hpp>
+#include <cstdint>
 #include <string>
 #include <string_view>
+#include <optional>
 #include <vector>
 
 namespace ast {
@@ -53,7 +55,9 @@ struct decimal_literal : x3::position_tagged {
 // where also literals like 12UX"F-" are possible.
 struct bit_string_literal : x3::position_tagged {
     std::uint32_t base;
-    std::string integer;  // base: 2,8,10,16
+    std::string literal;  // base: 2,8,10,16
+    using value_type = std::uint32_t;
+    std::optional<value_type> value;
 };
 
 using abstract_literal = variant<based_literal, decimal_literal>;
@@ -76,4 +80,4 @@ BOOST_FUSION_ADAPT_STRUCT(ast::real_type, integer, fractional, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::integer_type, integer, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::based_literal, base, num)
 BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, num, base)
-BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, integer)
+BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, literal)

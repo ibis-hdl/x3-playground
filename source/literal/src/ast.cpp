@@ -5,6 +5,23 @@
 #include <iostream>
 #include <iomanip>
 
+namespace fmt{
+
+template <typename T>
+struct formatter<std::optional<T>>:fmt::formatter<T> {
+
+  template <typename FormatContext>
+  auto format(const std::optional<T>& opt, FormatContext& ctx) {
+    if (opt) {
+      fmt::formatter<T>::format(*opt, ctx);
+      return ctx.out();
+    }
+    return fmt::format_to(ctx.out(), "N/A");
+  }
+};
+
+} // namespace fmt
+
 namespace ast {
 
 std::ostream& operator<<(std::ostream& os, ast::real_type const& r)
@@ -68,7 +85,7 @@ std::ostream& operator<<(std::ostream& os, ast::abstract_literal const& l)
 
 std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& l)
 {
-    os << fmt::format(R"({}"{}")", l.base, l.integer);
+    os << fmt::format(R"({}"{}" ({}))", l.base, l.literal, l.value);
     return os;
 }
 
