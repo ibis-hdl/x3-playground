@@ -175,23 +175,25 @@ struct grammar_class : my_error_handler<grammar_class> {};
 
 }  // namespace
 
-template<typename T>
-void the_type() {
-    //char const* name = typeid(T).name()
-    //std::cout << boost::core::demangle( name ) << '\n';
+template <typename T>
+void the_type()
+{
+    // char const* name = typeid(T).name()
+    // std::cout << boost::core::demangle( name ) << '\n';
     std::cout << boost::typeindex::type_id<T>().pretty_name() << "\n";
 }
 
 template <typename Expr>
-std::string inspect(Expr const& expr) {
+std::string inspect(Expr const& expr)
+{
     using A = typename x3::traits::attribute_of<Expr, x3::unused_type>::type;
     return boost::core::demangle(typeid(A).name());
 }
 
 int main()
 {
-    //std::cout << boost::typeindex::type_id<decltype(parser::hex_digits)>().pretty_name() << "\n";
-    //std::cout << inspect((parser::hex_digits)) << "\n";
+    // std::cout << boost::typeindex::type_id<decltype(parser::hex_digits)>().pretty_name() << "\n";
+    // std::cout << inspect((parser::hex_digits)) << "\n";
 
     using namespace ast;
 

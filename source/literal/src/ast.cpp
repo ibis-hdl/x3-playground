@@ -5,22 +5,22 @@
 #include <iostream>
 #include <iomanip>
 
-namespace fmt{
+namespace fmt {
 
 template <typename T>
-struct formatter<std::optional<T>>:fmt::formatter<T> {
-
-  template <typename FormatContext>
-  auto format(const std::optional<T>& opt, FormatContext& ctx) {
-    if (opt) {
-      fmt::formatter<T>::format(*opt, ctx);
-      return ctx.out();
+struct formatter<std::optional<T>> : fmt::formatter<T> {
+    template <typename FormatContext>
+    auto format(const std::optional<T>& opt, FormatContext& ctx)
+    {
+        if (opt) {
+            fmt::formatter<T>::format(*opt, ctx);
+            return ctx.out();
+        }
+        return fmt::format_to(ctx.out(), "N/A");
     }
-    return fmt::format_to(ctx.out(), "N/A");
-  }
 };
 
-} // namespace fmt
+}  // namespace fmt
 
 namespace ast {
 
