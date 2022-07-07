@@ -133,7 +133,6 @@ auto const based_literal = x3::rule<struct based_literal_class, ast::based_liter
 // BNF: decimal_literal := integer [ . integer ] [ exponent ]
 auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal_literal>{ "decimal literal" } =
     parser::decimal_literal;
-    //(real | integer) >> x3::attr(10U);
 
 // BNF: decimal_literal | based_literal
 // Note: {decimal, based}_literal's AST nodes does have same memory layout now!

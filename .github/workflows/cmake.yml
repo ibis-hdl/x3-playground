@@ -1,0 +1,165 @@
+name: 'CMake build'
+
+on:
+  push:
+    branches: [  main  ]
+  pull_request:
+    branches: [  main  ]
+  workflow_dispatch:
+
+env:
+  CONAN_V2_MODE : 1
+  # GitHub actions automatically zstd compresses caches
+  CCACHE_NOCOMPRESS : true
+  # 3GB; 10GB total for 4 compile jobs and conan data
+  CCACHE_MAXSIZE : 3G
+  SCCACHE_CACHE_SIZE : 3G
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  Linux:
+    name: Linux ${{ matrix.config.compiler }}
+    runs-on: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:    [ ubuntu-22.04 ]
+        config:
+        - {
+            compiler: "clang"
+          }
+        - {
+            compiler: "gcc"
+          }
+
+    steps:
+
+    - name: Install basic dependencies (Ubuntu)
+      # fail-safe check, only Ubuntu this days
+      if: startsWith(matrix.image, 'ubuntu')
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends -y cmake ninja-build ccache g++-11 clang-14
+
+    - name: Install conan package manager
+      run: |
+        python -m pip install --upgrade pip
+        pip --disable-pip-version-check --no-cache-dir install wheel conan
+
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Setup Github's cache for conan
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-${{ matrix.config.compiler }}-conan-${{ hashFiles('conanfile.txt') }}
+        path: |
+          ~/.conan
+
+    - name: Setup Github's cache for compiler cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-${{ matrix.config.compiler }}-ccache
+        path: |
+          ~/.config/ccache
+          ~/.cache/ccache
+
+    - name: Build CMake's preset string
+      id: cmake_preset_string
+      uses: ASzc/change-string-case-action@v2
+      with:
+        string: ci-${{ runner.os }}-${{ matrix.config.compiler }}
+
+    - name: Configuration and build
+      run: |
+        cmake --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+        cmake --build --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+
+    - name: CCache statistics
+      run: |
+        ccache --show-stats
+
+    - name: Run Unit Test
+      if: false # no tests these days
+      run: |
+        ctest --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+
+    - name: Clean up conan's build & sources
+      run: |
+        conan remove -f "*" --builds
+        conan remove -f "*" --src
+
+  # ---------------------------------------------------------------------------
+  Windows:
+    name: Windows ${{ matrix.config.compiler }}
+    runs-on: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        image:    [ windows-2022 ]
+        config:
+        - {
+            compiler: "msvc",
+            vcvars:   "C:\\Program Files\\Microsoft Visual Studio\\2022\\Enterprise\\VC\\Auxiliary\\Build\\vcvars64.bat",
+          }
+
+    steps:
+
+    - name: Install basic dependencies
+      run: |
+        choco install ninja cmake sccache
+
+    - name: Install conan package manager
+      run: |
+        python -m pip install --upgrade pip
+        pip --disable-pip-version-check --no-cache-dir install wheel conan
+
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Setup Github's cache for conan
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-${{ matrix.config.compiler }}-conan-${{ hashFiles('conanfile.txt') }}
+        path: |
+          C:\\Users\\runneradmin\\.conan
+          C:\\.conan
+
+    - name: Setup Github's cache for compiler cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-${{ matrix.config.compiler }}-sccache
+        path: |
+          C:\\Users\\runneradmin\\AppData\\Local\\Mozilla\\sccache
+
+    - name: Build CMake's preset string
+      id: cmake_preset_string
+      uses: ASzc/change-string-case-action@v2
+      with:
+        string: ci-${{ runner.os }}-${{ matrix.config.compiler }}
+
+    - name: Configuration and build on Windows
+      shell: cmd
+      run: |
+        call "${{ matrix.config.vcvars }}"
+        cmake --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+        cmake --build --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+
+    - name: SCCache statistics
+      run: |
+        sccache --show-stats && sccache --stop-server
+
+    - name: Run Unit Test
+      if: false # no tests these days
+      run: |
+        ctest --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+
+    - name: Clean up conan's build & sources
+      run: |
+        conan remove -f "*" --builds
+        conan remove -f "*" --src
