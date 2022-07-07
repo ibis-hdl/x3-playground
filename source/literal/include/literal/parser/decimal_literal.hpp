@@ -132,7 +132,7 @@ private:
         // Concept, @see [godbolt.org](https://godbolt.org/z/KroM7oxc5)
         // @note: not relevant since std::string is returned, but generally take care on stack-use-after-scope, 
         // see [godbolt](https://godbolt.org/z/vr39h7Y8d)
-        auto const as_real_string = [](ast::real_type const& real) 
+        auto const as_real_string = [](ast::real_type const& real) {
         
             using namespace std::literals::string_view_literals;
             namespace views = ranges::views;
