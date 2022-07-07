@@ -127,35 +127,42 @@ private:
     template <typename TargetT>
     std::optional<TargetT> convert(ast::real_type const& real, unsigned base = 10U) const
     {
-        namespace views = ranges::views;
-        using namespace std::literals::string_view_literals;
-
         static_assert(std::is_floating_point_v<TargetT>, "TargetT must be of floating point type");
 
-        // Concept, see [godbolt.org](https://godbolt.org/z/KroM7oxc5)
-        auto const prune_parts = [](ast::real_type const& real) {
-            using namespace ranges;
+        // Concept, @see [godbolt.org](https://godbolt.org/z/KroM7oxc5)
+        // @note: not relevant since std::string is returned, but generally take care on stack-use-after-scope, 
+        // see [godbolt](https://godbolt.org/z/vr39h7Y8d)
+        auto const as_real_string = [](ast::real_type const& real) 
+        
+            using namespace std::literals::string_view_literals;
+            namespace views = ranges::views;
+
+            auto const as_pruned_string = [](auto const& literal) {
+                using namespace ranges;
+                auto const pred = [](char chr) { return chr != '_'; };
+                return ranges::to<std::string>(literal | views::join | views::filter(pred));
+            };
 
             auto const as_sv = [](std::string const& str) { return std::string_view(str); };
-            auto const pred = [](char chr) { return chr != '_'; };
 
             if (real.exponent.empty()) {
-                auto const literal = { as_sv(real.integer), "."sv, as_sv(real.fractional) };
-                return ranges::to<std::string>(literal | views::join | views::filter(pred));
+                auto const literal = { // --
+                    as_sv(real.integer), "."sv, as_sv(real.fractional) };
+                return as_pruned_string(literal);
             }
-
-            auto const literal = { as_sv(real.integer), "."sv, as_sv(real.fractional),  // --
-                                   "e"sv, as_sv(real.exponent) };
-            return ranges::to<std::string>(literal | views::join | views::filter(pred));
+            auto const literal = { // --
+                as_sv(real.integer), "."sv, as_sv(real.fractional), "e"sv, as_sv(real.exponent) };
+            return as_pruned_string(literal);
         };
-        std::string const real_pruned = prune_parts(real);
+
+        std::string const real_string = as_real_string(real);
 
         std::error_code ec{};
-        TargetT const real_result = convert::detail::as_real<TargetT>(real_pruned, base, ec);
+        auto const real_result = convert::detail::as_real<TargetT>(real_string, base, ec);
 
         if (ec) {
             std::cerr << "decimal_literal error: " << ec.message() << " "
-                      << std::quoted(real_pruned) << '\n';
+                      << std::quoted(real_string) << '\n';
             return {};
         }
 
@@ -170,14 +177,14 @@ private:
         static_assert(std::is_integral_v<TargetT> && std::is_unsigned_v<TargetT>,
                       "TargetT must be of unsigned integral type");
 
-        std::string const int_pruned = convert::detail::prune(integer.integer);
+        std::string const int_string = convert::detail::prune(integer.integer);
 
         std::error_code ec{};
-        TargetT const int_result = convert::detail::as_unsigned<TargetT>(int_pruned, base, ec);
+        auto const int_result = convert::detail::as_unsigned<TargetT>(int_string, base, ec);
 
         if (ec) {
             std::cerr << "decimal_literal error on integer: " << ec.message() << " "
-                      << std::quoted(int_pruned) << '\n';
+                      << std::quoted(int_string) << '\n';
             return {};
         }
 
@@ -186,25 +193,25 @@ private:
             return int_result;
         }
 
-        // Note [std::from_chars](https://en.cppreference.com/w/cpp/utility/from_chars):
+        // @note [from_chars](https://en.cppreference.com/w/cpp/utility/from_chars):
         // "the plus sign is not recognized outside of the exponent" - for VHDL's integer exponent
-        // this is allowed! Since it may occur only at first character position it's get
-        // handled directly here. This avoids complexer range filter.
+        // this is allowed (just handling this)! Since it may occur only at first character position 
+        // it's get handled immediately. This avoids complexer (time consuming) range filter.
         auto exp_sv = std::string_view(integer.exponent);
         exp_sv.remove_prefix(std::min(exp_sv.find_first_not_of("+", 0, 1), exp_sv.size()));
 
-        std::string const exp_pruned = convert::detail::prune(exp_sv);
-        TargetT exp_index = convert::detail::as_unsigned<TargetT>(exp_pruned, base, ec);
+        std::string const exp_string = convert::detail::prune(exp_sv);
+        TargetT exp_index = convert::detail::as_unsigned<TargetT>(exp_string, base, ec);
 
         if (ec) {
             std::cerr << "decimal_literal error on exponent: " << ec.message() << " "
-                      << std::quoted(exp_pruned) << '\n';
+                      << std::quoted(exp_string) << '\n';
             return {};
         }
 
-        // Note: MSVC doesn't allow some constexpr, so an alternative way has been chosen, see
-        // [constexpr exp, log,
-        // pow](https://stackoverflow.com/questions/50477974/constexpr-exp-log-pow)
+        // @note MSVC doesn't allow constexpr of log10, so an alternative way has been chosen, 
+        // see [constexpr exp, log, pow](
+        //  https://stackoverflow.com/questions/50477974/constexpr-exp-log-pow)
         static auto constexpr exp10_scale = convert::detail::exp10_scale<TargetT>;
 
         if (!(exp_index < exp10_scale.max_index())) {
@@ -212,6 +219,9 @@ private:
         }
 
         try {
+            // scale the integer with exponent, use [Safe Numerics](
+            //  https://www.boost.org/doc/libs/develop/libs/safe_numerics/doc/html/index.html)
+            // to guarantee to yield a correct mathematical result
             using namespace boost::safe_numerics;
             safe<TargetT> const i = int_result;
             safe<TargetT> const e = exp10_scale[exp_index];

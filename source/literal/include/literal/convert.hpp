@@ -36,7 +36,7 @@ static inline auto as_unsigned(std::string_view literal, unsigned base, std::err
     // std::from_chars() works with raw char pointers
     char const* const end = literal.data() + literal.size();
 
-    TargetT result = static_cast<TargetT>(-1);
+    TargetT result;
     auto const [ptr, errc] = std::from_chars(literal.data(), end, result, base);
 
 #if !defined(__clang__)
@@ -81,7 +81,7 @@ static inline auto as_real(std::string_view literal, unsigned base, std::error_c
     // std::from_chars() works with raw char pointers
     const char* const end = literal.data() + literal.size();
 
-    TargetT result;  // = std::numeric_limits<TargetT>::quiet_NaN();
+    TargetT result;
     auto const [ptr, errc] =
         std::from_chars(literal.data(), end, result, std::chars_format::general);
 
