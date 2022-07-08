@@ -6,12 +6,12 @@
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
 #include <literal/convert.hpp>
+#include <literal/detail/safe_mul.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 
 #include <cmath>
 #include <limits>
-#include <boost/safe_numerics/safe_integer.hpp>
 
 #include <range/v3/view/join.hpp>
 #include <range/v3/range/conversion.hpp>
@@ -102,17 +102,18 @@ struct decimal_literal : x3::parser<decimal_literal> {
             return false;
         }
 
+        // FixMe: Wrong place here to dispatch according the parsed type!!
         // clang-format off
         auto const convert = [this](attribute_type::num_type& var) {
             boost::apply_visitor(
                 util::overloaded{
                     [this](ast::real_type& r) {
                         using target_type = ast::real_type::value_type;
-                        r.value = decimal_literal::convert<target_type>(r, 10U);
+                        r.value = decimal_literal::convert<target_type>(r);
                     },
                     [this](ast::integer_type& i) {
                         using target_type = ast::integer_type::value_type;
-                        i.value = decimal_literal::convert<target_type>(i, 10U);
+                        i.value = decimal_literal::convert<target_type>(i);
                     }
                 }, var);
             // clang-format on
@@ -125,15 +126,17 @@ struct decimal_literal : x3::parser<decimal_literal> {
 
 private:
     template <typename TargetT>
-    std::optional<TargetT> convert(ast::real_type const& real, unsigned base = 10U) const
+    std::optional<TargetT> convert(ast::real_type const& real) const
     {
         static_assert(std::is_floating_point_v<TargetT>, "TargetT must be of floating point type");
 
-        // Concept, @see [godbolt.org](https://godbolt.org/z/KroM7oxc5)
-        // @note: not relevant since std::string is returned, but generally take care on stack-use-after-scope, 
-        // see [godbolt](https://godbolt.org/z/vr39h7Y8d)
+        // join all parsed elements and prune delimiter '_' to be prepared for indirect call
+        // of `from_chars()`.
+        // Concept: @see [godbolt.org](https://godbolt.org/z/KroM7oxc5)
+        // @note Care must be taken on stack-use-after-scope ([godbolt](https://godbolt.org/z/vr39h7Y8d))
+        // but not relevant since std::string is returned.
         auto const as_real_string = [](ast::real_type const& real) {
-        
+
             using namespace std::literals::string_view_literals;
             namespace views = ranges::views;
 
@@ -158,7 +161,7 @@ private:
         std::string const real_string = as_real_string(real);
 
         std::error_code ec{};
-        auto const real_result = convert::detail::as_real<TargetT>(real_string, base, ec);
+        auto const real_result = convert::detail::as_real<TargetT, 10U>(real_string, ec);
 
         if (ec) {
             std::cerr << "decimal_literal error: " << ec.message() << " "
@@ -170,7 +173,7 @@ private:
     }
 
     template <typename TargetT>
-    std::optional<TargetT> convert(ast::integer_type const& integer, unsigned base = 10U) const
+    std::optional<TargetT> convert(ast::integer_type const& integer) const
     {
         namespace views = ranges::views;
 
@@ -180,7 +183,7 @@ private:
         std::string const int_string = convert::detail::prune(integer.integer);
 
         std::error_code ec{};
-        auto const int_result = convert::detail::as_unsigned<TargetT>(int_string, base, ec);
+        auto const int_result = convert::detail::as_unsigned<TargetT, 10U>(int_string, ec);
 
         if (ec) {
             std::cerr << "decimal_literal error on integer: " << ec.message() << " "
@@ -189,19 +192,12 @@ private:
         }
 
         if (integer.exponent.empty()) {
-            // nothings to do
+            // nothings more to do
             return int_result;
         }
 
-        // @note [from_chars](https://en.cppreference.com/w/cpp/utility/from_chars):
-        // "the plus sign is not recognized outside of the exponent" - for VHDL's integer exponent
-        // this is allowed (just handling this)! Since it may occur only at first character position 
-        // it's get handled immediately. This avoids complexer (time consuming) range filter.
-        auto exp_sv = std::string_view(integer.exponent);
-        exp_sv.remove_prefix(std::min(exp_sv.find_first_not_of("+", 0, 1), exp_sv.size()));
-
-        std::string const exp_string = convert::detail::prune(exp_sv);
-        TargetT exp_index = convert::detail::as_unsigned<TargetT>(exp_string, base, ec);
+        std::string const exp_string = convert::detail::prune(integer.exponent);
+        TargetT exp_index = convert::detail::as_unsigned<TargetT, 10U>(exp_string, ec);
 
         if (ec) {
             std::cerr << "decimal_literal error on exponent: " << ec.message() << " "
@@ -209,29 +205,24 @@ private:
             return {};
         }
 
-        // @note MSVC doesn't allow constexpr of log10, so an alternative way has been chosen, 
-        // see [constexpr exp, log, pow](
-        //  https://stackoverflow.com/questions/50477974/constexpr-exp-log-pow)
         static auto constexpr exp10_scale = convert::detail::exp10_scale<TargetT>;
 
         if (!(exp_index < exp10_scale.max_index())) {
             std::cerr << "decimal_literal error: exponent overflow\n";
+            return {};
         }
 
-        try {
-            // scale the integer with exponent, use [Safe Numerics](
-            //  https://www.boost.org/doc/libs/develop/libs/safe_numerics/doc/html/index.html)
-            // to guarantee to yield a correct mathematical result
-            using namespace boost::safe_numerics;
-            safe<TargetT> const i = int_result;
-            safe<TargetT> const e = exp10_scale[exp_index];
-            safe<TargetT> const result = i * e;
-            return static_cast<TargetT>(result);
+        // scale the integer with exponent
+        // may overkill here: [Safe Numerics](
+        //  https://www.boost.org/doc/libs/develop/libs/safe_numerics/doc/html/index.html)
+        TargetT const result = ::util::mul<TargetT>(int_result, exp10_scale[exp_index], ec);
+
+        if (ec) {
+            std::cerr << "decimal_literal error: " << ec.message() << "\n";
+            return {};
         }
-        catch (std::exception const& e) {
-            std::cerr << "decimal_literal error:" << e.what() << std::endl;
-        }
-        return {};
+
+        return result;
     }
 
 } const decimal_literal;
