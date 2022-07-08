@@ -18,67 +18,82 @@ namespace util {
 
 namespace detail {
 
-template <class... T>
-static constexpr bool always_false = false;
-
-template<typename T, template<typename> typename Derived>
-struct promote_base {
-    using base_type = T;
+// promote type concept see [coliru](https://coliru.stacked-crooked.com/a/ca649fc42f0b13c9)
+template <typename T>
+struct promote {
+    static_assert(sizeof(T) == 0, "numeric type not supported");
 };
 
-template<typename T>
-struct promote : promote_base<T, promote> {
-    static_assert(always_false<T>, "numeric type not supported");
-};
-
-template<>
+template <>
 struct promote<std::uint32_t> {
     using type = std::uint64_t;
 };
 
-template<>
+template <>
 struct promote<std::uint64_t> {
 #if defined(_MSVC_LANG)
     // MSVC17 / VS2022 doesn't seems to have __uint128_t, hence we use
-    // boost.multiprecision for simplicity; also see feature request 
+    // boost.multiprecision for simplicity; also see feature request
     // [Support for 128-bit integer type](
     // https://developercommunity.visualstudio.com/t/support-for-128-bit-integer-type/879048)
     using type = ::boost::multiprecision::uint128_t;
 #else
-    using type = __uint128_t ;
+    using type = __uint128_t;
 #endif
     static_assert(sizeof(type) >= 16, "type with wrong promoted size");
 };
 
-template<>
+template <>
 struct promote<float> {
     using type = double;
 };
 
-template<>
+template <>
 struct promote<double> {
     using type = long double;
 };
 
-
-template<typename T>
+// Select numeric implementation ((unsigned) integer and real)
+// concept see [coliru](https://coliru.stacked-crooked.com/a/dd9e4543247597ad)
+template <typename T, class Enable = void>
 struct safe_mul {
+    static_assert(sizeof(T) == 0, "unsupported numeric type");
+};
 
-    T operator()(T lhs, T rhs, std::error_code& ec) const {
-        using promote_type = typename promote<T>::type;
+template <typename IntT>
+struct safe_mul<IntT, typename std::enable_if_t<                                // --
+                          std::is_integral_v<IntT> && std::is_unsigned_v<IntT>  // --
+                          && !std::is_same_v<IntT, bool>>> {
+    IntT operator()(IntT lhs, IntT rhs, std::error_code& ec) const
+    {
+        using promote_type = typename promote<IntT>::type;
         promote_type const result = static_cast<promote_type>(lhs) * rhs;
-        if(result > std::numeric_limits<T>::max()) {
+
+        if (result > std::numeric_limits<IntT>::max()) {
             ec = std::make_error_code(std::errc::value_too_large);
         }
-        return result;
+        return static_cast<IntT>(result);
+    }
+};
+
+// FixMe: Support [FP exceptions](https://en.cppreference.com/w/cpp/numeric/fenv/FE_exceptions)
+template <typename RealT>
+struct safe_mul<RealT, typename std::enable_if_t<std::is_floating_point_v<RealT>>> {
+    RealT operator()(RealT lhs, RealT rhs, std::error_code& ec) const
+    {
+        using promote_type = typename promote<RealT>::type;
+        promote_type const result = static_cast<promote_type>(lhs) * rhs;
+
+        if (result > std::numeric_limits<RealT>::max()) {
+            ec = std::make_error_code(std::errc::value_too_large);
+        }
+        return static_cast<RealT>(result);
     }
 };
 
 }  // namespace detail
 
-// concept see [coliru](https://coliru.stacked-crooked.com/a/1fa02afbe79aec23)
-// FixMe: [FP exceptions](https://en.cppreference.com/w/cpp/numeric/fenv/FE_exceptions)
-template<typename T>
+template <typename T>
 static detail::safe_mul<T> const mul = {};
 
-}
+}  // namespace util

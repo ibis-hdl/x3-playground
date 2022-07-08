@@ -5,7 +5,6 @@
 
 #include <boost/spirit/home/x3/support/numeric_utils/detail/extract_int.hpp>
 
-
 namespace convert {
 
 namespace detail {
@@ -24,7 +23,8 @@ namespace detail {
 /// @endcode
 ///
 template <typename T, unsigned Radix>
-struct digits_traits : boost::spirit::x3::detail::digits_traits<T, Radix> {};
+struct digits_traits : boost::spirit::x3::detail::digits_traits<T, Radix> {
+};
 
-} }
-
+}  // namespace detail
+}  // namespace convert

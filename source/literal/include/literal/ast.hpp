@@ -26,7 +26,6 @@ template <typename T>
 using optional = boost::optional<T>;
 
 struct real_type : x3::position_tagged {
-    // boost::iterator_range<Iter> later on
     std::string integer;     // base: 2,8,10,16
     std::string fractional;  // base: 2,8,10,16
     std::string exponent;
@@ -90,5 +89,5 @@ std::ostream& operator<<(std::ostream& os, ast::literal const& l);
 BOOST_FUSION_ADAPT_STRUCT(ast::real_type, integer, fractional, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::integer_type, integer, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::based_literal, base, num)
-BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, num, base)
+BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, num, base)  // note different order for parser!
 BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, literal)
