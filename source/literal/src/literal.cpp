@@ -38,7 +38,7 @@ struct my_error_handler {  // try to recover and continue to parse
     {
         std::cerr << "error handler for RuleID: '" << typeid(RuleID).name() << "'\n";
         auto& error_handler = x3::get<x3::error_handler_tag>(ctx);
-        std::string message = "Error! Expecting " + e.which() + " here:";
+        auto const message = fmt::format("Error! Expecting {} here:", e.which());
         error_handler(e.where(), message);
         // FixMe: always true: e.where() == first ; see
         // https://github.com/boostorg/spirit/issues/726 our error resolution strategy
@@ -99,7 +99,7 @@ using x3::lit;
 
 // clang-format off
 
-auto const comment = "//" >> *(char_ - x3::eol) >> x3::eol;
+auto const comment = "//" >> *~x3::char_("\r\n");
 
 using parser::char_parser::bin_digits;
 using parser::char_parser::oct_digits;
@@ -119,15 +119,14 @@ auto const unsigned_exp = x3::rule<struct _, std::uint32_t>{ "literal integer ex
     x3::omit[ char_("Ee") >> -lit('+') ] >> uint_;
 auto const based_digit = x3::rule<struct _, std::string>{ "literal digit" } =
     x3::raw[ x3::xdigit >> *( -lit('_') >> x3::xdigit) ]; // FixMe: char set depends on base
-auto const real = x3::rule<struct _, ast::real_type>{ "literal real" } =
-    based_digit >> '.' >> x3::expect[ based_digit ] >> '#' >> -signed_exp;
-auto const integer = x3::rule<struct _, ast::integer_type>{ "literal integer" } =
-    based_digit >> '#' >> -unsigned_exp;
+
+using parser::integer_ng;
+using parser::real_ng;
 
 // BNF: based_literal := base # based_integer [ . based_integer ] # [ exponent ]
 auto const based_literal = x3::rule<struct based_literal_class, ast::based_literal>{ "based literal" } =
     x3::lexeme[
-           base >> '#' >> mandatory<based_literal_class, ast::based_literal::num_type>( real | integer, "based literal real or integer type")
+           base >> '#' >> mandatory<based_literal_class, ast::based_literal::num_type>( real_ng | integer_ng, "based literal real or integer type")
     ];
 
 // BNF: decimal_literal := integer [ . integer ] [ exponent ]

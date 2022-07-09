@@ -146,11 +146,11 @@ struct integer_parser_ng : x3::parser<integer_parser_ng> {
     }
 };
 
-static parser::integer_parser_ng const integer_ng = {};
-static parser::real_parser_ng const real_ng = {};
+static integer_parser_ng const integer_ng = {};
+static real_parser_ng const real_ng = {};
 
 // BNF: decimal_literal := integer [ . integer ] [ exponent ]
-struct decimal_literal : x3::parser<decimal_literal> {
+struct decimal_literal_parser : x3::parser<decimal_literal_parser> {
     using attribute_type = ast::decimal_literal;
 
     template <typename IteratorT, typename ContextT, typename RContextT>
@@ -172,6 +172,8 @@ struct decimal_literal : x3::parser<decimal_literal> {
         return true;
     }
 
-} const decimal_literal;
+};
+
+static decimal_literal_parser const decimal_literal = {};
 
 }  // namespace parser

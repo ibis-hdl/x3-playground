@@ -50,6 +50,9 @@ struct safe_mul {
     static_assert(sizeof(T) == 0, "unsupported numeric type");
 };
 
+// To multiply type promotion is used; alternative for integer see
+// [Catch and compute overflow during multiplication of two large integers](
+//  https://stackoverflow.com/questions/1815367/catch-and-compute-overflow-during-multiplication-of-two-large-integers)
 template <typename IntT>
 struct safe_mul<IntT, typename std::enable_if_t<                                // --
                           std::is_integral_v<IntT> && std::is_unsigned_v<IntT>  // --
