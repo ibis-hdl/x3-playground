@@ -1,0 +1,40 @@
+//
+// Copyright (c) 2017-2022 Olaf (<ibis-hdl@users.noreply.github.com>).
+// SPDX-License-Identifier: GPL-3.0-or-later
+//
+
+#pragma once
+
+#cmakedefine HAVE___INT128_T
+#cmakedefine HAVE___UINT128_T
+
+#if !defined(HAVE___INT128_T) || !defined(HAVE___UINT128_T)
+#include <boost/multiprecision/cpp_int.hpp>
+#endif
+
+namespace nostd {
+
+#if defined(HAVE___INT128_T)
+using int128_t = __int128_t;
+#endif
+
+#if defined(HAVE___UINT128_T)
+using uint128_t = __uint128_t;
+#endif
+
+// fallback
+// MSVC17 / VS2022 doesn't seems to have __uint128_t, hence we use
+// boost.multiprecision for simplicity; also see feature request
+// [Support for 128-bit integer type](
+// https://developercommunity.visualstudio.com/t/support-for-128-bit-integer-type/879048)
+
+#if !defined(HAVE___INT128_T)
+using int128_t = ::boost::multiprecision::int128_t;
+#endif
+
+#if !defined(HAVE___UINT128_T)
+using uint128_t = ::boost::multiprecision::uint128_t;
+#endif
+
+}
+

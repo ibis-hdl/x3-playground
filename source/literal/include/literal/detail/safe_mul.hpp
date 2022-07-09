@@ -10,9 +10,7 @@
 #include <cstdint>
 #include <system_error>
 
-#if defined(_MSVC_LANG)
-#include <boost/multiprecision/cpp_int.hpp>
-#endif
+#include <literal/detail/int_types.hpp>
 
 namespace util {
 
@@ -31,15 +29,7 @@ struct promote<std::uint32_t> {
 
 template <>
 struct promote<std::uint64_t> {
-#if defined(_MSVC_LANG)
-    // MSVC17 / VS2022 doesn't seems to have __uint128_t, hence we use
-    // boost.multiprecision for simplicity; also see feature request
-    // [Support for 128-bit integer type](
-    // https://developercommunity.visualstudio.com/t/support-for-128-bit-integer-type/879048)
-    using type = ::boost::multiprecision::uint128_t;
-#else
-    using type = __uint128_t;
-#endif
+    using type = nostd::uint128_t;
     static_assert(sizeof(type) >= 16, "type with wrong promoted size");
 };
 

@@ -18,6 +18,16 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   range-v3::range-v3
 )
 
+include(CheckTypeSize)
+check_type_size(__int128_t __INT128_T LANGUAGE CXX)
+check_type_size(__uint128_t __UINT128_T LANGUAGE CXX)
+configure_file(
+  ${PROJECT_SOURCE_DIR}/include/literal/detail/int_types.hpp.in
+  ${PROJECT_BINARY_DIR}/include/literal/detail/int_types.hpp
+)
+
 target_include_directories(
-  ${PROJECT_NAME} PRIVATE $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
-                          $<BUILD_INTERFACE:${Boost_INCLUDE_DIR}>)
+  ${PROJECT_NAME} PRIVATE 
+    $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+    $<BUILD_INTERFACE:${Boost_INCLUDE_DIR}>)
