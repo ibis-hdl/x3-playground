@@ -33,17 +33,13 @@ static inline std::string prune(auto literal)
     return ranges::to<std::string>(literal | views::filter(prune_predicate));
 }
 
+// FixMe: from_chars API problem, nice to have https://coliru.stacked-crooked.com/a/9c3d9280b44964bc 
 template <typename TargetT, unsigned Base>
 class from_chars_api {
 public:
     TargetT operator()(std::string_view literal, std::error_code& ec) const
     {
-        // @note [from_chars](https://en.cppreference.com/w/cpp/utility/from_chars):
-        // "the plus sign is not recognized outside of the exponent" - for VHDL's integer exponent
-        // this is allowed, and it's a valid rule for outer parser! Let's purge it.
-        if (literal.size() > 0 && literal[0] == '+') {
-            literal.remove_prefix(1);
-        }
+        literal = remove_positive_sign(literal);
 
         char const* const end = literal.data() + literal.size();
 
@@ -75,8 +71,20 @@ public:
     }
 
 private:
-    std::error_code get_error_code(char const* const ptr, char const* const end,
-                                   std::errc errc) const
+    // removes a positive sign in front of the literal due to requirements of used underlying
+    // [from_chars](https://en.cppreference.com/w/cpp/utility/from_chars):
+    // "the plus sign is not recognized outside of the exponent" - for VHDL's integer exponent
+    // this is allowed, and it's a valid rule for outer parser!
+    static std::string_view remove_positive_sign(std::string_view literal) {
+        if (literal.size() > 0 && literal[0] == '+') {
+            literal.remove_prefix(1);
+        }
+        return literal;
+    }
+
+    // checks on `from_chars()` errc and on full match by comparing the iterators.
+    static std::error_code get_error_code(char const* const ptr, char const* const end,
+                                          std::errc errc)
     {
         if (ptr != end) {
             // something of input is wrong, outer parser fails
@@ -86,6 +94,7 @@ private:
             // maybe errc::result_out_of_range, errc::invalid_argument ...
             return std::make_error_code(errc);
         }
+        // all went fine
         return std::error_code{};
     }
 };
@@ -269,5 +278,54 @@ private:
 
 template <typename TargetT>
 static convert_integer<TargetT, 10U> const integer10 = {};
+
+// --------------------------------------------------------------------------------
+
+// Note, no template argument, it's not expected to switch the implementation based
+// on numeric Base.
+template <typename TargetT>
+struct convert_bit_string_literal {
+    static_assert(std::is_integral_v<TargetT> && std::is_unsigned_v<TargetT>,
+                  "TargetT must be of unsigned integral type");
+
+    std::optional<TargetT> operator()(ast::bit_string_literal const& literal, std::error_code ec) const
+    {
+        std::string const digit_string = as_digit_string(literal.literal);
+
+        // FixMe: from_chars API problem, nice to have https://coliru.stacked-crooked.com/a/9c3d9280b44964bc 
+        auto const from_chars_ = [&](std::string_view literal, unsigned base) {
+            switch(base) {
+                case 2:
+                    return convert::detail::from_chars<TargetT, 2>(literal, ec);
+                case 8:
+                    return convert::detail::from_chars<TargetT, 8>(literal, ec);
+                case 16:
+                    return convert::detail::from_chars<TargetT, 16>(literal, ec);
+                default:
+                    std::cerr << "call of convert::bit_string_literal with wrong base\n";
+                    abort();
+            }
+        };
+
+        auto const binary_number = from_chars_(digit_string, literal.base);
+
+        if (ec) {
+            return {};
+        }
+
+        return binary_number;
+    }
+
+private:
+    // doesn't care about valid digits!
+    std::string as_digit_string(std::string_view literal) const
+    {
+        return detail::prune(literal);
+    }
+};
+
+template <typename TargetT>
+static convert_bit_string_literal<TargetT> const bit_string_literal = {};
+
 
 }  // namespace convert

@@ -4,7 +4,6 @@
 //
 
 #include <literal/ast.hpp>
-#include <literal/parser/literal_base_parser.hpp>
 #include <literal/parser/char_parser.hpp>
 
 #include <boost/spirit/home/x3.hpp>
@@ -80,7 +79,12 @@ static const do_lazy_type<T> do_lazy{};
 }  // namespace detail
 
 // BNF: bit_string_literal ::= base_specifier " [ bit_value ] "
-struct bit_string_literal : x3::parser<bit_string_literal> {
+// FixMe: ATTENTION:  In VHDL-1993 hexadecimal bit-string literals always contain a 
+// multiple of 4 bits, and octal ones a multiple of 3 bits. VHDL-2008 they may have:
+// - an explicit width,
+// - declared as signed or unsigned,
+// - include meta-values ('U', 'X', etc.)
+struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
     using attribute_type = ast::bit_string_literal;
 
     template <typename IteratorT, typename ContextT, typename RContextT>
@@ -124,15 +128,23 @@ struct bit_string_literal : x3::parser<bit_string_literal> {
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
         if (!parse_ok) {
-            first = begin;  // rewind iter
+            first = begin;
             return false;
         }
 
-        attribute.value = convert<attribute_type::value_type>(attribute.literal, attribute.base);
+        std::error_code ec{};
+        attribute.value = convert::bit_string_literal<attribute_type::value_type>(attribute, ec);
+
+        if (ec) {
+            std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
+            first = begin;
+            return false;
+        }
 
         return true;
     }
 
+private:
     // clang-format off
     x3::symbols<std::uint32_t> const base_id = x3::symbols<std::uint32_t>({
         { "b", 2 },
@@ -141,54 +153,8 @@ struct bit_string_literal : x3::parser<bit_string_literal> {
     }, "base id");
     // clang-format on
 
-private:
-    template <typename TargetT>
-    std::optional<TargetT> convert(auto range, unsigned base) const
-    {
-        namespace views = ranges::views;
+};
 
-        // prune the literal and copy result to string
-        std::string const pruned =
-            ranges::to<std::string>(range | views::filter([](char chr) { return chr != '_'; }));
-
-        // std::from_chars() works with raw char pointers
-        auto const end = pruned.data() + pruned.size();
-
-        TargetT result;
-        auto const [ptr, errc] = std::from_chars(pruned.data(), end, result, base);
-
-        // FixMe: move extra header, see convert.hpp
-#if !defined(__clang__)
-        auto const ec = [=]() {
-            if (ptr != end) {
-                // something of input is wrong, outer parser fails
-                return std::make_error_code(std::errc::invalid_argument);
-            }
-            if (errc != std::errc{}) {
-                // maybe errc::result_out_of_range, errc::invalid_argument ...
-                return std::make_error_code(errc);
-            }
-            return std::error_code{};
-        }();
-#else
-        std::error_code ec;
-        if (ptr != end) {
-            // something of input is wrong, outer parser fails
-            ec = std::make_error_code(std::errc::invalid_argument);
-        }
-        if (errc != std::errc{}) {
-            // maybe errc::result_out_of_range, errc::invalid_argument ...
-            ec = std::make_error_code(errc);
-        }
-        ec = std::error_code{};
-#endif
-        if (ec) {
-            std::cerr << "bit_string_literal error: " << ec.message() << '\n';
-            return {};
-        }
-        return result;
-    }
-
-} const bit_string_literal;
+static bit_string_literal_parser const bit_string_literal = {};
 
 }  // namespace parser
