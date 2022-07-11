@@ -5,10 +5,9 @@
 
 //#define BOOST_SPIRIT_X3_DEBUG
 #include <literal/ast.hpp>
-#include <literal/parser/integer_parser.hpp>
-#include <literal/parser/literal_base_parser.hpp>
 #include <literal/parser/decimal_literal.hpp>
 #include <literal/parser/bit_string_literal.hpp>
+#include <literal/parser/based_literal.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
@@ -22,7 +21,7 @@
 #include <iostream>
 #include <iomanip>
 
-#include <boost/type_index.hpp>
+
 
 namespace x3 = boost::spirit::x3;
 
@@ -101,33 +100,9 @@ using x3::lit;
 
 auto const comment = "//" >> *~x3::char_("\r\n");
 
-using parser::char_parser::bin_digits;
-using parser::char_parser::oct_digits;
-using parser::char_parser::dec_digits;
-using parser::char_parser::hex_digits;
-
-
-auto const base_ = parser::literal_base_parser{};
-auto const int_ =  parser::integer_parser<10U, std::int32_t>{};
-auto const uint_ = parser::integer_parser<10U, std::uint32_t>{};
-
-auto const base = x3::rule<struct _, std::uint32_t>{ "literal base" } =
-    base_;
-auto const signed_exp = x3::rule<struct _, std::int32_t>{ "literal real exponent" } =
-    x3::omit[ char_("Ee") ] >> int_;
-auto const unsigned_exp = x3::rule<struct _, std::uint32_t>{ "literal integer exponent" } =
-    x3::omit[ char_("Ee") >> -lit('+') ] >> uint_;
-auto const based_digit = x3::rule<struct _, std::string>{ "literal digit" } =
-    x3::raw[ x3::xdigit >> *( -lit('_') >> x3::xdigit) ]; // FixMe: char set depends on base
-
-using parser::integer_ng;
-using parser::real_ng;
-
 // BNF: based_literal := base # based_integer [ . based_integer ] # [ exponent ]
 auto const based_literal = x3::rule<struct based_literal_class, ast::based_literal>{ "based literal" } =
-    x3::lexeme[
-           base >> '#' >> mandatory<based_literal_class, ast::based_literal::num_type>( real_ng | integer_ng, "based literal real or integer type")
-    ];
+    parser::based_literal;
 
 // BNF: decimal_literal := integer [ . integer ] [ exponent ]
 auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal_literal>{ "decimal literal" } =
@@ -145,7 +120,7 @@ auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } 
           *(lit("X :=")
         >> mandatory<grammar_class, ast::literal>(
             (abstract_literal | parser::bit_string_literal)
-           , "literal")
+           , "correct grammar")
         >> x3::expect[';'])
     ];
 
@@ -156,22 +131,6 @@ struct grammar_class : my_error_handler<grammar_class> {};
 // clang-format on
 
 }  // namespace
-
-template <typename T>
-void the_type()
-{
-    // char const* name = typeid(T).name()
-    // std::cout << boost::core::demangle( name ) << '\n';
-    std::cout << boost::typeindex::type_id<T>().pretty_name() << "\n";
-}
-
-template <typename Expr>
-std::string inspect(Expr const& expr)
-{
-    using A = typename x3::traits::attribute_of<Expr, x3::unused_type>::type;
-    return boost::core::demangle(typeid(A).name());
-}
-
 int main()
 {
     using namespace ast;
@@ -191,7 +150,7 @@ int main()
     // based literal
     X := 8#1_20#E1;
     X := 0_2#1100_0001#;
-    X := 10#42#E42;
+    X := 10#42#E4;
     X := 16#AFFE_1.0Cafe#e-10;
     // failure test
     X := 2##;          // -> based literal real or integer type

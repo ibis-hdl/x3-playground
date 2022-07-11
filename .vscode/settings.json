@@ -90,6 +90,7 @@
         "numbers": "cpp",
         "semaphore": "cpp",
         "cfenv": "cpp",
-        "cinttypes": "cpp"
+        "cinttypes": "cpp",
+        "*.ipp": "cpp"
     }
 }

@@ -46,21 +46,15 @@ struct based_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
     std::uint32_t base;
     num_type num;
-    // numeric representation
-    // e.g. https://coliru.stacked-crooked.com/a/652a879e37b4ea37
-    // std::variant<RealT, IntT> const value() // lazy numeric conversion
 };
 
 struct decimal_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
     std::uint32_t base;
     num_type num;
-    // numeric representation
-    // using value_type = std::variant<std::monostate, double, std::uint32_t>;
-    // value_type value;
 };
 
-// Note: The literal representation is needed, at the latest with VHDL 2008
+// Note: The literal representation is needed, at the latest with VHDL-2008
 // where also literals like 12UX"F-" are possible.
 struct bit_string_literal : x3::position_tagged {
     std::uint32_t base;
@@ -69,6 +63,8 @@ struct bit_string_literal : x3::position_tagged {
     using value_type = std::uint32_t;
     std::optional<value_type> value;
 };
+
+// TBD: physical literal ( numeric part and unit specification)
 
 using abstract_literal = variant<based_literal, decimal_literal>;
 // using literal = variant<numeric_literal, enumeration_literal, string_literal,

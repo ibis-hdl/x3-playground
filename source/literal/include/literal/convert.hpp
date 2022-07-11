@@ -7,6 +7,7 @@
 
 #include <literal/ast.hpp>
 #include <literal/detail/safe_mul.hpp>
+#include <literal/detail/digit_traits.hpp>
 
 #include <range/v3/view/filter.hpp>
 #include <range/v3/view/join.hpp>
@@ -23,48 +24,66 @@ namespace convert {
 
 namespace detail {
 
-auto const prune_predicate = [](char chr) { return chr != '_'; };
+auto const underline_predicate = [](char chr) { return chr != '_'; };
 
 // prune the literal and copy result to string
-static inline std::string prune(auto literal)
+static inline std::string remove_underline(auto literal)
 {
     namespace views = ranges::views;
 
-    return ranges::to<std::string>(literal | views::filter(prune_predicate));
+    return ranges::to<std::string>(literal | views::filter(underline_predicate));
 }
 
-// FixMe: from_chars API problem, nice to have https://coliru.stacked-crooked.com/a/9c3d9280b44964bc 
-template <typename TargetT, unsigned Base>
+// ---
+
+// FixMe https://godbolt.org/z/4xWaGs7dq (C++20 concept)
+
+template<typename T, class Enable = void>
+struct api
+{
+    static auto call(const char* const first, const char* const last, T& value, unsigned base)
+    {
+        static_assert(sizeof(T) && false, "T must be of unsigned integral or float type");
+    }
+};
+
+template<typename IntT>
+struct api<IntT, typename std::enable_if_t<                                   // --
+                        std::is_integral_v<IntT> && std::is_unsigned_v<IntT>  // --
+                        && !std::is_same_v<IntT, bool>>>
+{
+    static auto call(const char* const first, const char* const last, IntT& value, unsigned base)
+    {
+        return std::from_chars(first, last, value, base);
+    }
+};
+
+template<typename RealT>
+struct api<RealT, typename std::enable_if_t<std::is_floating_point_v<RealT>>> {
+    static auto call(const char* const first, const char* const last, RealT& value, unsigned base)
+    {
+        assert(base == 10U && "Only Base = 10 is supported for floating point");
+
+        // FixMe: other bases
+
+        return std::from_chars(first, last, value, std::chars_format::general);
+    }
+};
+
+// ---
+
+template <typename TargetT>
 class from_chars_api {
 public:
-    TargetT operator()(std::string_view literal, std::error_code& ec) const
+    // low level API, call `std::from_chars()`, literal must be pruned from delimiter '_'
+    TargetT operator()(std::string_view literal, unsigned base, std::error_code& ec) const
     {
         literal = remove_positive_sign(literal);
 
         char const* const end = literal.data() + literal.size();
 
-        // FixMe: What happens here? https://coliru.stacked-crooked.com/a/2164be2b3363cbf5
-        // https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p2593r0.html
-
-        auto const from_char_ = [&](TargetT& result) {
-            if constexpr (std::is_integral_v<TargetT> && std::is_unsigned_v<TargetT>) {
-                return std::from_chars(literal.data(), end, result, Base);
-            }
-            else if constexpr (std::is_floating_point_v<TargetT>) {
-                assert(Base == 10U && "Only Base = 10 is supported for floating point");
-                return std::from_chars(literal.data(), end, result, std::chars_format::general);
-            }
-            else {
-                // must be of type unsigned integer or float
-                // FixMe: make this compile time error, check concept
-                // [coliru](https://coliru.stacked-crooked.com/a/dd9e4543247597ad)
-                assert(false && "unsupported numeric target type");
-                return 0;
-            }
-        };
-
         TargetT result;
-        auto const [ptr, errc] = from_char_(result);
+        auto const [ptr, errc] = api<TargetT>::call(literal.data(), end, result, base);
 
         ec = get_error_code(ptr, end, errc);
         return result;
@@ -99,31 +118,35 @@ private:
     }
 };
 
-template <typename TargetT, unsigned Base>
-static const from_chars_api<TargetT, Base> from_chars = {};
+template <typename TargetT>
+static const from_chars_api<TargetT> from_chars = {};
 
-template <typename TargetT, unsigned Base>
-static inline auto as_unsigned(std::string_view literal, std::error_code& ec)
+template <typename TargetT>
+static inline auto as_unsigned(std::string_view literal, unsigned base, std::error_code& ec)
 {
     static_assert(std::is_integral_v<TargetT> && std::is_unsigned_v<TargetT>,
                   "TargetT must be of unsigned integral type");
 
-    return from_chars<TargetT, Base>(literal, ec);
+    auto const clean_literal = convert::detail::remove_underline(literal);
+    return from_chars<TargetT>(clean_literal, base, ec);
 }
 
-template <typename TargetT, unsigned Base>
-static inline auto as_real(std::string_view literal, std::error_code& ec)
+template <typename TargetT>
+static inline auto as_real(std::string_view literal, unsigned base, std::error_code& ec)
 {
     static_assert(std::is_floating_point_v<TargetT>, "TargetT must be of floating point type");
-    static_assert(Base == 10U && "only base 10 for real type is supported");
+    assert(base == 10U && "only base 10 for real type is supported");
 
-    return from_chars<TargetT, Base>(literal, ec);
+    return from_chars<TargetT>(literal, base, ec);
 }
 
-// concept, see [coliru](https://coliru.stacked-crooked.com/a/ee869b77c78b496d)
+// concept, see [coliru](https://coliru.stacked-crooked.com/a/09a6475cf60dd1e9)
+// concept, part #2: https://coliru.stacked-crooked.com/a/47b7cc5e62eb7431
+// concept, part #3: https://godbolt.org/z/oKTP5ajWb
 template <typename T, unsigned Base>
 class exp_scale {
-    static_assert(std::is_integral_v<T>, "T must be integral type");
+    static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>, "T must be integral type");
+    static_assert(Base > 1 && Base < 37, "Base must be in range [2,36]");
 
 public:
     using value_type = T;
@@ -131,8 +154,6 @@ public:
 public:
     constexpr exp_scale()
     {
-        assert(Base == 10U && "This table was developed only with Base 10 in mind!");
-
         T value = 1;
         for (std::size_t i = 0; i != SIZE; ++i) {
             data[i] = value;
@@ -149,7 +170,7 @@ public:
     unsigned max_index() const { return SIZE; }
 
 private:
-    static constexpr auto SIZE = std::numeric_limits<T>::digits10 + 1;
+    static constexpr auto SIZE = convert::detail::digits_traits<T,  Base>::value;
     std::array<value_type, SIZE> data;
 };
 
@@ -158,16 +179,16 @@ static constexpr exp_scale<T, 10U> exp10_scale = {};
 
 }  // namespace detail
 
-template <typename TargetT, unsigned Base>
+template <typename TargetT>
 struct convert_real {
     static_assert(std::is_floating_point_v<TargetT>, "TargetT must be of floating point type");
-    static_assert(Base == 10U && "only base 10 for real type is supported");
 
-    std::optional<TargetT> operator()(ast::real_type const& real, std::error_code ec) const
+    std::optional<TargetT> operator()(ast::real_type const& real, unsigned base, std::error_code& ec) const
     {
-        std::string const real_string = as_real_string(real);
+        assert(base == 10U && "only base 10 for real type is supported");
 
-        auto const real_result = convert::detail::as_real<TargetT, Base>(real_string, ec);
+        auto const real_string = as_real_string(real);
+        auto const real_result = detail::as_real<TargetT>(real_string, 10U, ec);
 
         if (ec) {
             return {};
@@ -186,46 +207,46 @@ private:
     {
         using namespace std::literals::string_view_literals;
 
-        auto const prune_string = [](auto const& literal) {
+        auto const remove_underline = [](auto const& literal_list) {
             namespace views = ranges::views;
-            return ranges::to<std::string>(literal | views::join |
-                                           views::filter(detail::prune_predicate));
+            return ranges::to<std::string>(literal_list | views::join |
+                                           views::filter(detail::underline_predicate));
         };
 
         auto const as_sv = [](std::string const& str) { return std::string_view(str); };
 
         if (real.exponent.empty()) {
             // clang-format off
-            auto const literal = {
+            auto const literal_list = {
                 as_sv(real.integer), "."sv, as_sv(real.fractional)
             };
             // clang-format on
-            return prune_string(literal);
+            return remove_underline(literal_list);
         }
 
         // clang-format off
-        auto const literal = {
+        auto const literal_list = {
             as_sv(real.integer), "."sv, as_sv(real.fractional), "e"sv, as_sv(real.exponent)
         };
         // clang-format on
-        return prune_string(literal);
+        return remove_underline(literal_list);
     }
 };
 
 template <typename TargetT>
-static convert_real<TargetT, 10U> const real10 = {};
+static convert_real<TargetT> const real = {};
 
-template <typename TargetT, unsigned Base>
+template <typename TargetT>
 struct convert_integer {
     static_assert(std::is_integral_v<TargetT> && std::is_unsigned_v<TargetT>,
                   "TargetT must be of unsigned integral type");
-    // just limit it to the known - with exponent of 10
-    static_assert(Base == 10U && "only base 10 for decimal integer type is supported");
 
-    std::optional<TargetT> operator()(ast::integer_type const& integer, std::error_code ec) const
+    std::optional<TargetT> operator()(ast::integer_type const& integer, unsigned base, std::error_code& ec) const
     {
-        auto const int_string = as_integer_string(integer.integer);
-        auto const int_result = detail::as_unsigned<TargetT, Base>(int_string, ec);
+        // just limit it to the known - with exponent of 10
+        assert(base == 10U && "only base 10 for decimal integer type is supported");
+
+        auto const int_result = detail::as_unsigned<TargetT>(integer.integer, base, ec);
 
         if (ec) {
             return {};
@@ -237,15 +258,14 @@ struct convert_integer {
         }
 
         // transform e.g. "nnnE6" to index of 6 for lookup of base 10
-        auto const exp_string = as_exponent_string(integer.exponent);
-        auto const exp10_index = detail::as_unsigned<TargetT, 10U>(exp_string, ec);
+        auto const exp10_index = detail::as_unsigned<TargetT>(integer.exponent, base, ec);
 
         if (ec) {
             // error from std::from_chars()
             return {};
         }
 
-        static auto constexpr exp10_scale = convert::detail::exp10_scale<TargetT>;
+        static auto constexpr exp10_scale = detail::exp10_scale<TargetT>;
 
         if (!(exp10_index < exp10_scale.max_index())) {
             // exponent 10^index out of range or others
@@ -264,20 +284,10 @@ struct convert_integer {
 
         return result;
     }
-
-private:
-    std::string as_integer_string(std::string_view integer) const
-    {  // --
-        return detail::prune(integer);
-    }
-    std::string as_exponent_string(std::string_view exponent) const
-    {
-        return detail::prune(exponent);
-    }
 };
 
 template <typename TargetT>
-static convert_integer<TargetT, 10U> const integer10 = {};
+static convert_integer<TargetT> const integer = {};
 
 // --------------------------------------------------------------------------------
 
@@ -288,26 +298,10 @@ struct convert_bit_string_literal {
     static_assert(std::is_integral_v<TargetT> && std::is_unsigned_v<TargetT>,
                   "TargetT must be of unsigned integral type");
 
-    std::optional<TargetT> operator()(ast::bit_string_literal const& literal, std::error_code ec) const
+    std::optional<TargetT> operator()(ast::bit_string_literal const& literal, std::error_code& ec) const
     {
-        std::string const digit_string = as_digit_string(literal.literal);
-
-        // FixMe: from_chars API problem, nice to have https://coliru.stacked-crooked.com/a/9c3d9280b44964bc 
-        auto const from_chars_ = [&](std::string_view literal, unsigned base) {
-            switch(base) {
-                case 2:
-                    return convert::detail::from_chars<TargetT, 2>(literal, ec);
-                case 8:
-                    return convert::detail::from_chars<TargetT, 8>(literal, ec);
-                case 16:
-                    return convert::detail::from_chars<TargetT, 16>(literal, ec);
-                default:
-                    std::cerr << "call of convert::bit_string_literal with wrong base\n";
-                    abort();
-            }
-        };
-
-        auto const binary_number = from_chars_(digit_string, literal.base);
+        auto const digit_string = detail::remove_underline(literal.literal);
+        auto const binary_number = detail::from_chars<TargetT>(digit_string, literal.base, ec);
 
         if (ec) {
             return {};
@@ -315,17 +309,9 @@ struct convert_bit_string_literal {
 
         return binary_number;
     }
-
-private:
-    // doesn't care about valid digits!
-    std::string as_digit_string(std::string_view literal) const
-    {
-        return detail::prune(literal);
-    }
 };
 
 template <typename TargetT>
 static convert_bit_string_literal<TargetT> const bit_string_literal = {};
-
 
 }  // namespace convert
