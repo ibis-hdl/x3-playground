@@ -9,12 +9,12 @@ find_package(Threads REQUIRED)
 add_executable(${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE
-  src/literal.cpp 
+  src/literal.cpp
   src/ast.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
-  fmt::fmt 
+  fmt::fmt
   range-v3::range-v3
 )
 
@@ -26,8 +26,11 @@ configure_file(
   ${PROJECT_BINARY_DIR}/include/literal/detail/int_types.hpp
 )
 
+# TODO: Add ASAN @debug mode
+# https://stackoverflow.com/questions/44320465/whats-the-proper-way-to-enable-addresssanitizer-in-cmake-that-works-in-xcode
+
 target_include_directories(
-  ${PROJECT_NAME} PRIVATE 
+  ${PROJECT_NAME} PRIVATE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
     $<BUILD_INTERFACE:${Boost_INCLUDE_DIR}>)

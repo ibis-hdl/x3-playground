@@ -82,10 +82,15 @@ public:
 
         char const* const end = literal.data() + literal.size();
 
+        //std::cout << "from_chars_api: " << "b=" << base << "'" << literal << "'\n";
         TargetT result;
         auto const [ptr, errc] = api<TargetT>::call(literal.data(), end, result, base);
-
         ec = get_error_code(ptr, end, errc);
+#if 0
+        std::cout << "from_chars_api: " << "b=" << base << "'" << literal << "' (";
+        if (ec) { std::cout << "fail)\n";  }
+        else { std::cout << "success = " << result << ")\n"; }
+#endif
         return result;
     }
 
@@ -135,7 +140,10 @@ template <typename TargetT>
 static inline auto as_real(std::string_view literal, unsigned base, std::error_code& ec)
 {
     static_assert(std::is_floating_point_v<TargetT>, "TargetT must be of floating point type");
-    assert(base == 10U && "only base 10 for real type is supported");
+
+    //FIXME Implementation; why isn't remove_underline() here?
+    //assert(base == 10U && "only base 10 for real type is supported");
+    return TargetT{42}; // FIXME, temporary for test
 
     return from_chars<TargetT>(literal, base, ec);
 }
@@ -183,12 +191,18 @@ template <typename TargetT>
 struct convert_real {
     static_assert(std::is_floating_point_v<TargetT>, "TargetT must be of floating point type");
 
-    std::optional<TargetT> operator()(ast::real_type const& real, unsigned base, std::error_code& ec) const
+    std::optional<TargetT> operator()(ast::real_type const& real, std::error_code& ec) const
     {
-        assert(base == 10U && "only base 10 for real type is supported");
+        std::cout << "convert_real '" << real << "'\n";
+
+        //FIXME assert(base == 10U && "only base 10 for real type is supported");
+
+        // FixMe: The approach joining real parts into single one does work
+        // only for decimal real, with e.g. hex the literal 16#AFFE_1.0Cafe#e-10
+        // becomes AFFE_1.0Cafee-10, which is wrong!
 
         auto const real_string = as_real_string(real);
-        auto const real_result = detail::as_real<TargetT>(real_string, 10U, ec);
+        auto const real_result = detail::as_real<TargetT>(real_string, real.base, ec);
 
         if (ec) {
             return {};
@@ -229,6 +243,7 @@ private:
             as_sv(real.integer), "."sv, as_sv(real.fractional), "e"sv, as_sv(real.exponent)
         };
         // clang-format on
+
         return remove_underline(literal_list);
     }
 };
@@ -241,12 +256,11 @@ struct convert_integer {
     static_assert(std::is_integral_v<TargetT> && std::is_unsigned_v<TargetT>,
                   "TargetT must be of unsigned integral type");
 
-    std::optional<TargetT> operator()(ast::integer_type const& integer, unsigned base, std::error_code& ec) const
+    std::optional<TargetT> operator()(ast::integer_type const& integer, std::error_code& ec) const
     {
-        // just limit it to the known - with exponent of 10
-        assert(base == 10U && "only base 10 for decimal integer type is supported");
+        std::cout << "convert_integer '" << integer << "'\n";
 
-        auto const int_result = detail::as_unsigned<TargetT>(integer.integer, base, ec);
+        auto const int_result = detail::as_unsigned<TargetT>(integer.integer, integer.base, ec);
 
         if (ec) {
             return {};
@@ -257,32 +271,40 @@ struct convert_integer {
             return int_result;
         }
 
-        // transform e.g. "nnnE6" to index of 6 for lookup of base 10
-        auto const exp10_index = detail::as_unsigned<TargetT>(integer.exponent, base, ec);
+        if(integer.base == 10U) {
 
-        if (ec) {
-            // error from std::from_chars()
-            return {};
+            // transform e.g. "nnnE6" to index of 6 for lookup of base 10
+            auto const exp10_index = detail::as_unsigned<TargetT>(integer.exponent, integer.base, ec);
+
+            if (ec) {
+                // error from std::from_chars()
+                return {};
+            }
+
+            static auto constexpr exp10_scale = detail::exp10_scale<TargetT>;
+
+            if (!(exp10_index < exp10_scale.max_index())) {
+                // exponent 10^index out of range or others
+                ec = std::make_error_code(std::errc::value_too_large);
+                return {};
+            }
+
+            // scale the integer with exponent; may overkill here: [Safe Numerics](
+            //  https://www.boost.org/doc/libs/develop/libs/safe_numerics/doc/html/index.html)
+            // hence we use our own multiplication to detect overflows.
+            TargetT const result = ::util::mul<TargetT>(int_result, exp10_scale[exp10_index], ec);
+
+            if (ec) {
+                // numeric range overflow
+                return {};
+            }
+
+            return result;
         }
-
-        static auto constexpr exp10_scale = detail::exp10_scale<TargetT>;
-
-        if (!(exp10_index < exp10_scale.max_index())) {
-            // exponent 10^index out of range or others
-            ec = std::make_error_code(std::errc::value_too_large);
-            return {};
+        else {
+            std::cerr << "FixMe: convert_integer '" << integer << " (base != 10)\n";
         }
-
-        // scale the integer with exponent; may overkill here: [Safe Numerics](
-        //  https://www.boost.org/doc/libs/develop/libs/safe_numerics/doc/html/index.html)
-        TargetT const result = ::util::mul<TargetT>(int_result, exp10_scale[exp10_index], ec);
-
-        if (ec) {
-            // numeric range overflow
-            return {};
-        }
-
-        return result;
+        return 666;
     }
 };
 

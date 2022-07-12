@@ -26,8 +26,9 @@ template <typename T>
 using optional = boost::optional<T>;
 
 struct real_type : x3::position_tagged {
-    std::string integer;     // base: 2,8,10,16
-    std::string fractional;  // base: 2,8,10,16
+    unsigned base{};
+    std::string integer;
+    std::string fractional;
     std::string exponent;
     // numeric representation
     using value_type = double;
@@ -35,7 +36,8 @@ struct real_type : x3::position_tagged {
 };
 
 struct integer_type : x3::position_tagged {
-    std::string integer;   // base: 2,8,10,16
+    unsigned base{};
+    std::string integer;
     std::string exponent;  // positive only!
     // numeric representation
     using value_type = std::uint32_t;
@@ -44,13 +46,11 @@ struct integer_type : x3::position_tagged {
 
 struct based_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
-    std::uint32_t base;
     num_type num;
 };
 
 struct decimal_literal : x3::position_tagged {
     using num_type = variant<real_type, integer_type>;
-    std::uint32_t base;
     num_type num;
 };
 
@@ -58,7 +58,7 @@ struct decimal_literal : x3::position_tagged {
 // where also literals like 12UX"F-" are possible.
 struct bit_string_literal : x3::position_tagged {
     std::uint32_t base;
-    std::string literal;  // base: 2,8,10,16
+    std::string literal;
     // numeric representation
     using value_type = std::uint32_t;
     std::optional<value_type> value;
@@ -84,6 +84,6 @@ std::ostream& operator<<(std::ostream& os, ast::literal const& l);
 
 BOOST_FUSION_ADAPT_STRUCT(ast::real_type, integer, fractional, exponent)
 BOOST_FUSION_ADAPT_STRUCT(ast::integer_type, integer, exponent)
-BOOST_FUSION_ADAPT_STRUCT(ast::based_literal, base, num)
-BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, num, base)  // note different order for parser!
+BOOST_FUSION_ADAPT_STRUCT(ast::based_literal, num)
+BOOST_FUSION_ADAPT_STRUCT(ast::decimal_literal, num)
 BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, literal)

@@ -26,7 +26,7 @@ namespace ast {
 
 std::ostream& operator<<(std::ostream& os, ast::real_type const& r)
 {
-    os << fmt::format("#{}.{}#", r.integer, r.fractional);
+    os << fmt::format("{}#{}.{}#", r.base, r.integer, r.fractional);
     if (!r.exponent.empty()) {
         os << fmt::format("e{}", r.exponent);
     }
@@ -38,7 +38,7 @@ std::ostream& operator<<(std::ostream& os, ast::real_type const& r)
 
 std::ostream& operator<<(std::ostream& os, ast::integer_type const& i)
 {
-    os << fmt::format("#{}#", i.integer);
+    os << fmt::format("{}#{}#", i.base, i.integer);
     if (!i.exponent.empty()) {
         os << fmt::format("e{}", i.exponent);
     }
@@ -59,7 +59,6 @@ std::ostream& operator<<(std::ostream& os, ast::based_literal const& l)
         {
         }
     } const v(os);
-    os << l.base;
     boost::apply_visitor(v, l.num);
     return os;
 }
@@ -75,9 +74,7 @@ std::ostream& operator<<(std::ostream& os, ast::decimal_literal const& l)
         {
         }
     } const v(os);
-    os << l.base;
     boost::apply_visitor(v, l.num);
-
     return os;
 }
 

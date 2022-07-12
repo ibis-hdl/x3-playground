@@ -18,19 +18,22 @@ namespace parser {
 
 namespace x3 = boost::spirit::x3;
 
+using based_integer_base_tag = struct {};
+
 namespace detail {
 
 // BNF base ::= integer
-struct based_integer_base_parser : x3::parser<based_integer_base_parser> {
+struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
 
-    using attribute_type = std::uint32_t;
+    // an extra context is used to write the base specifier into
+    using attribute_type = x3::unused_type;
 
-    template <typename IteratorT, typename ContextT, typename RContextT>
-    bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-               [[maybe_unused]] RContextT const& rctx, attribute_type& base_attribute) const
+    template <typename IteratorT, typename ContextT>
+    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
+               x3::unused_type, x3::unused_type) const
     {
-        skip_over(first, last, ctx);
         auto const begin = first;
+
         std::string base_literal_str;
         bool const parse_ok = x3::parse(first, last, char_parser::dec_integer, base_literal_str);
 
@@ -40,17 +43,18 @@ struct based_integer_base_parser : x3::parser<based_integer_base_parser> {
         }
 
         std::error_code ec;
-        auto const base_result = convert::detail::as_unsigned<attribute_type>(base_literal_str, 10U, ec);
+        // base specifier is always decimal
+        auto const base_result = convert::detail::as_unsigned<unsigned>(base_literal_str, 10U, ec);
 
-        if (!ec) {
-            base_attribute = base_result;
-        }
-        else {
+        if (ec) {
             std::cerr << "error: " << ec.message() << " '" << base_literal_str << "'\n";
             return false;
         }
 
-        if (!supported_base(base_attribute)) {
+        // store the parsed base for use at based_{real, integer} later
+        x3::get<based_integer_base_tag>(ctx) = base_result;
+
+        if (!supported_base(base_result)) {
             first = begin;
             return false;
         }
@@ -59,7 +63,7 @@ struct based_integer_base_parser : x3::parser<based_integer_base_parser> {
     }
 
 private:
-    static bool supported_base(attribute_type base)
+    static bool supported_base(unsigned base)
     {
         if (base == 2 || base == 8 || base == 10 || base == 16) {
             return true;
@@ -68,24 +72,27 @@ private:
     }
 };
 
-static based_integer_base_parser const based_integer_base = {};
+static based_base_specifier_parser const based_base_specifier = {};
 
 // BNF: based_literal := based_integer [ . based_integer ] [ exponent ]
 struct based_integer_parser : x3::parser<based_integer_parser> {
     using attribute_type = ast::integer_type;
 
-    template <typename IteratorT, typename ContextT, typename RContextT>
-    bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-               [[maybe_unused]] RContextT const& rctx, attribute_type& attribute) const
+    template <typename IteratorT, typename ContextT>
+    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
+               x3::unused_type, attribute_type& attribute) const
     {
-        skip_over(first, last, ctx);
         auto const begin = first;
 
-        using char_parser::dec_integer; // FIXME, based_integer
+        // Note: the base has been initialized by outer rule before
+        attribute.base = x3::get<based_integer_base_tag>(ctx);
+        unsigned const base = attribute.base;
+
+        auto const based_integer = char_parser::based_integer<IteratorT>(base);
         using detail::unsigned_exp;
 
-        auto const grammar =
-            dec_integer >> '#' >> -unsigned_exp;
+        auto const grammar =  // use lexeme[] from outer parser
+            based_integer >> '#' >> -unsigned_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
@@ -94,9 +101,8 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
             return false;
         }
 
-        std::error_code ec; // TODO
-        unsigned base = 10U; // FixMe
-        attribute.value = convert::integer<attribute_type::value_type>(attribute, base, ec);
+        std::error_code ec{};
+        attribute.value = convert::integer<attribute_type::value_type>(attribute, ec);
 
         if (ec) {
             std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
@@ -110,21 +116,24 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
 
 static based_integer_parser const based_integer = {};
 
-struct based_integer_real_parser : x3::parser<based_integer_real_parser> {
+struct based_real_parser : x3::parser<based_real_parser> {
     using attribute_type = ast::real_type;
 
-    template <typename IteratorT, typename ContextT, typename RContextT>
-    bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-               [[maybe_unused]] RContextT const& rctx, attribute_type& attribute) const
+    template <typename IteratorT, typename ContextT>
+    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
+               x3::unused_type, attribute_type& attribute) const
     {
-        skip_over(first, last, ctx);
         auto const begin = first;
 
-        using char_parser::dec_integer;  // FIXME, based_integer
+        // Note: the base has been initialized by outer rule before
+        attribute.base = x3::get<based_integer_base_tag>(ctx);
+        unsigned const base = attribute.base;
+
+        auto const based_integer = char_parser::based_integer<IteratorT>(base);
         using detail::signed_exp;
 
-        auto const grammar =  //
-            dec_integer >> '.' >> x3::expect[dec_integer] >> '#' >> -signed_exp;
+        auto const grammar =  // use lexeme[] from outer parser
+            based_integer >> '.' >> x3::expect[based_integer] >> '#' >> -signed_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
@@ -133,9 +142,8 @@ struct based_integer_real_parser : x3::parser<based_integer_real_parser> {
             return false;
         }
 
-        std::error_code ec; // TODO
-        unsigned base = 10U; // FixMe
-        attribute.value = convert::real<attribute_type::value_type>(attribute, base, ec);
+        std::error_code ec{};
+        attribute.value = convert::real<attribute_type::value_type>(attribute, ec);
 
         if (ec) {
             std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
@@ -147,7 +155,7 @@ struct based_integer_real_parser : x3::parser<based_integer_real_parser> {
     }
 };
 
-static based_integer_real_parser const based_real = {};
+static based_real_parser const based_real = {};
 
 } // namespace detail
 
@@ -155,19 +163,26 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
 
     using attribute_type = ast::based_literal;
 
-    template <typename IteratorT, typename ContextT, typename RContextT>
-    bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-               [[maybe_unused]] RContextT const& rctx, attribute_type& attribute) const
+    template <typename IteratorT, typename ContextT>
+    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
+               x3::unused_type, attribute_type& attribute) const
     {
         skip_over(first, last, ctx);
         auto const begin = first;
 
-        using detail::based_integer_base;
+        using detail::based_base_specifier;
         using detail::based_real;
         using detail::based_integer;
 
-        auto const grammar = //
-            based_integer_base >> '#' >> (based_real | based_integer);
+        // store the parsed base (specifier) for use at based_{real, integer}, by introducing an
+        // extra context
+        // clang-format off
+        auto const grammar = x3::with<based_integer_base_tag>(unsigned{} /* base */)[  //
+            x3::lexeme[
+                based_base_specifier >> '#' >> (based_real | based_integer)
+            ]
+        ];
+        // clang-format on
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
@@ -178,7 +193,6 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
 
         return true;
     }
-
 };
 
 static based_literal_parser const based_literal = {};

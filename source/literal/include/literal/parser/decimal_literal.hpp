@@ -57,9 +57,9 @@ auto const unsigned_exp = x3::rule<struct _, std::string>{ "integer exponent" } 
 struct decimal_real_parser : x3::parser<decimal_real_parser> {
     using attribute_type = ast::real_type;
 
-    template <typename IteratorT, typename ContextT, typename RContextT>
+    template <typename IteratorT, typename ContextT>
     bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-               [[maybe_unused]] RContextT const& rctx, attribute_type& attribute) const
+               x3::unused_type, attribute_type& attribute) const
     {
         skip_over(first, last, ctx);
         auto const begin = first;
@@ -67,10 +67,11 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
         using char_parser::dec_integer;
         using detail::signed_exp;
 
-        auto const grammar =  //
+        auto const grammar =  // use lexeme[] from outer parser
             dec_integer >> '.' >> x3::expect[dec_integer] >> -signed_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
+        attribute.base = 10U;  // decimal literal has base = 10
 
         if (!parse_ok) {
             first = begin;
@@ -78,7 +79,7 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
         }
 
         std::error_code ec;
-        attribute.value = convert::real<attribute_type::value_type>(attribute, 10U, ec);
+        attribute.value = convert::real<attribute_type::value_type>(attribute, ec);
 
         if (ec) {
             std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
@@ -94,9 +95,9 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
 struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
     using attribute_type = ast::integer_type;
 
-    template <typename IteratorT, typename ContextT, typename RContextT>
+    template <typename IteratorT, typename ContextT>
     bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-               [[maybe_unused]] RContextT const& rctx, attribute_type& attribute) const
+               x3::unused_type, attribute_type& attribute) const
     {
         skip_over(first, last, ctx);
         auto const begin = first;
@@ -105,10 +106,11 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
         using detail::unsigned_exp;
         using x3::lit;
 
-        auto const grammar =  // exclude based literal
+        auto const grammar =  // use lexeme[] from outer parser; exclude based literal
             dec_integer >> !lit('#') >> -unsigned_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
+        attribute.base = 10U;  // decimal literal has base = 10
 
         if (!parse_ok) {
             first = begin;
@@ -116,7 +118,7 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
         }
 
         std::error_code ec;
-        attribute.value = convert::integer<attribute_type::value_type>(attribute, 10U, ec);
+        attribute.value = convert::integer<attribute_type::value_type>(attribute, ec);
 
         if (ec) {
             std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
@@ -135,14 +137,17 @@ static decimal_real_parser const decimal_real = {};
 struct decimal_literal_parser : x3::parser<decimal_literal_parser> {
     using attribute_type = ast::decimal_literal;
 
-    template <typename IteratorT, typename ContextT, typename RContextT>
+    template <typename IteratorT, typename ContextT>
     bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-               [[maybe_unused]] RContextT const& rctx, attribute_type& attribute) const
+               x3::unused_type, attribute_type& attribute) const
     {
         skip_over(first, last, ctx);
+
         auto const begin = first;
 
-        auto const grammar = (decimal_real | decimal_integer) >> x3::attr(10U);
+        auto const grammar = x3::lexeme[
+            (decimal_real | decimal_integer)
+        ];
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 

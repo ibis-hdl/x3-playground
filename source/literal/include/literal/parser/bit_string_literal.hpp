@@ -20,7 +20,7 @@ namespace parser {
 namespace x3 = boost::spirit::x3;
 
 // BNF: bit_string_literal ::= base_specifier " [ bit_value ] "
-// FixMe: ATTENTION:  In VHDL-1993 hexadecimal bit-string literals always contain a
+// TODO: ATTENTION:  In VHDL-1993 hexadecimal bit-string literals always contain a
 // multiple of 4 bits, and octal ones a multiple of 3 bits. VHDL-2008 they may have:
 // - an explicit width,
 // - declared as signed or unsigned (e.g. UB, UX, SB, SX,...)
@@ -28,9 +28,9 @@ namespace x3 = boost::spirit::x3;
 struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
     using attribute_type = ast::bit_string_literal;
 
-    template <typename IteratorT, typename ContextT, typename RContextT>
+    template <typename IteratorT, typename ContextT>
     bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
-               [[maybe_unused]] RContextT const& rctx, attribute_type& attribute) const
+               x3::unused_type, attribute_type& attribute) const
     {
         using rule_type = x3::any_parser<IteratorT, std::string>;
         using char_parser::bin_integer;
@@ -40,6 +40,7 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
         using x3e::set_lazy;
 
         skip_over(first, last, ctx);
+
         auto const begin = first;
 
         // clang-format off

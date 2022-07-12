@@ -21,8 +21,6 @@
 #include <iostream>
 #include <iomanip>
 
-
-
 namespace x3 = boost::spirit::x3;
 
 namespace {
@@ -98,7 +96,9 @@ using x3::lit;
 
 // clang-format off
 
-auto const comment = "//" >> *~x3::char_("\r\n");
+auto const c_style_comments = "/*" >> x3::lexeme[*(x3::char_ - "*/")] >> "*/";
+auto const cpp_style_comment = "//" >> *~x3::char_("\r\n");
+auto const comment = cpp_style_comment | c_style_comments;
 
 // BNF: based_literal := base # based_integer [ . based_integer ] # [ exponent ]
 auto const based_literal = x3::rule<struct based_literal_class, ast::based_literal>{ "based literal" } =
@@ -113,7 +113,8 @@ auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal
 // This would allow to treat them as abstract_literal without variant type; only
 // parsers would be different!
 auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstract_literal>{ "based or decimal abstract literal" } =
-    based_literal | decimal_literal;
+    based_literal | decimal_literal
+    ;
 
 auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } =
     x3::skip(x3::space | comment)[
@@ -151,7 +152,10 @@ int main()
     X := 8#1_20#E1;
     X := 0_2#1100_0001#;
     X := 10#42#E4;
-    X := 16#AFFE_1.0Cafe#e-10;
+    X := 16#AFFE_1.0Cafe#;
+    X := 16#AFFE_2.0Cafe#e-10;
+    X := 16#DEAD_BEEF#e+1;
+/*
     // failure test
     X := 2##;          // -> based literal real or integer type
     X := 3#011#;       // base not supported
@@ -160,6 +164,7 @@ int main()
     X := 8#1#e1        // forgot ';' - otherwise ok
     X := 8#2#          // also forgot ';' - otherwise ok
     X := 16#1.2#e;     // forgot exp num
+*/
     // ok, just to test error recovery afterwards
     X := 10#42.666#e4711;
 )";
@@ -174,7 +179,7 @@ int main()
         bool parse_ok = x3::parse(input.begin(), input.end(), grammar_, literals);
         std::cout << fmt::format("parse ok is '{}', numeric literals:\n", parse_ok);
         for (auto const& lit : literals) {
-            std::cout << lit << '\n';
+            std::cout << "result: " << lit << '\n';
         }
     }
     catch (std::exception const& e) {

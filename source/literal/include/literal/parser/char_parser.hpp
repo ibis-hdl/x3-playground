@@ -13,6 +13,7 @@
 #include <string_view>
 #include <string>
 #include <cassert>
+#include <iostream>
 
 namespace parser {
 
@@ -30,10 +31,10 @@ auto const delimit_numeric_digits = [](auto&& char_range, char const* name) {
     // clang-format on
 };
 
-auto const bin_integer = delimit_numeric_digits("01", "binary digits");
-auto const oct_integer = delimit_numeric_digits("0-7", "octal digits");
-auto const dec_integer = delimit_numeric_digits("0-9", "decimal digits");
-auto const hex_integer = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
+static auto const bin_integer = delimit_numeric_digits("01", "binary digits");
+static auto const oct_integer = delimit_numeric_digits("0-7", "octal digits");
+static auto const dec_integer = delimit_numeric_digits("0-9", "decimal digits");
+static auto const hex_integer = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
 
 ///
 /// create charsets by given base
@@ -50,7 +51,10 @@ auto const based_charset = [](unsigned base)
     auto constexpr MAX_BASE = digits.size() + lower_case.size();
 
     static_assert(lower_case.size() == upper_case.size(), "");
-    assert((base > 1 && base <= MAX_BASE) && "Base must be in range [2,36]");
+    if(!(base >= 2 && base <= MAX_BASE)) {
+        std::cerr << "Attempt to get charset for invalid base " << base << '\n';
+    }
+    assert((base >= 2 && base <= MAX_BASE) && "Base must be in range [2, 36]");
 
     auto const dig_idx = base < digits.size() ? base : digits.size();
     auto const chr_idx = base > digits.size() ? base - dig_idx : 0;
@@ -65,9 +69,32 @@ auto const based_charset = [](unsigned base)
     return ranges::to<std::string>(char_list | views::join);
 };
 
-auto const based_integer = [](unsigned base, char const* name = "based integer") {
-    return delimit_numeric_digits(based_charset(base), name);
+template<typename IteratorT>
+struct based_integer_parser {
+    auto operator()(unsigned base, char const* name = "based integer") const {
+        auto const as = [](auto&& derived_parser) {
+            return x3::any_parser<IteratorT, std::string>{
+                x3::as_parser(derived_parser)
+            };
+        };
+
+        switch(base) {
+            case 2:
+                return as(bin_integer);
+            case 8:
+                return as(oct_integer);
+            case 10:
+                return as(dec_integer);
+            case 16:
+                return as(hex_integer);
+            default:
+                return as(delimit_numeric_digits(based_charset(base), name));
+        }
+    }
 };
+
+template<typename IteratorT>
+static based_integer_parser<IteratorT> const based_integer = {};
 
 namespace detail {
 //
@@ -117,8 +144,6 @@ struct join
 template <String... Strs>
 static constexpr auto join_v = join<Strs...>::value;
 
-} // namespace detail
-
 template<unsigned Base>
 std::string_view constexpr based_charset_gen()
 {
@@ -131,7 +156,8 @@ std::string_view constexpr based_charset_gen()
 
     auto constexpr MAX_BASE = digits.size() + lower_case.size();
 
-    static_assert((Base > 1) && (Base <= MAX_BASE), "Base must be in range [2,36]");
+    static_assert(lower_case.size() == upper_case.size(), "");
+    static_assert((Base >= 2) && (Base <= MAX_BASE), "Base must be in range [2, 36]");
 
     auto constexpr dig_idx = Base < digits.size() ? Base : digits.size();
     auto constexpr chr_idx = Base > digits.size() ? Base - dig_idx : 0;
@@ -147,7 +173,9 @@ std::string_view constexpr based_charset_gen()
     return chrset;
 }
 
-//static auto const dec_charset = based_charset_gen<10>();
+} // namespace detail
+
+//static auto const dec_charset = detail::based_charset_gen<10>();
 
 }  // namespace char_parser
 }  // namespace parser
