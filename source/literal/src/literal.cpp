@@ -154,7 +154,14 @@ int main()
     X := 10#42#E4;
     X := 16#AFFE_1.0Cafe#;
     X := 16#AFFE_2.0Cafe#e-10;
-    X := 16#DEAD_BEEF#e+1;
+    X := 16#DEAD_BEEF#e+0;
+    // from LRM93
+    X := 2#1111_1111#;  // 255
+    X := 016#00FF#;     // 255
+    X := 16#E#E1;       // 224
+    X := 2#1110_0000#;  // 224
+    X := 16#F.FF#E+2;   // 4095.0
+    X := 2#1.1111_1111_111#E11; // 4095.0
 /*
     // failure test
     X := 2##;          // -> based literal real or integer type
@@ -166,7 +173,7 @@ int main()
     X := 16#1.2#e;     // forgot exp num
 */
     // ok, just to test error recovery afterwards
-    X := 10#42.666#e4711;
+    X := 10#42.666#e-4;
 )";
 
     try {
@@ -176,10 +183,15 @@ int main()
         auto const grammar_ = x3::with<x3::error_handler_tag>(error_handler)[grammar >> x3::eoi];
 
         ast::literals literals;
-        bool parse_ok = x3::parse(input.begin(), input.end(), grammar_, literals);
-        std::cout << fmt::format("parse ok is '{}', numeric literals:\n", parse_ok);
+        auto first = input.begin();
+        bool parse_ok = x3::parse(first, input.end(), grammar_ , literals);
+
+        std::cout << fmt::format("complete parse ok is '{}'\nnumeric literals:\n", parse_ok);
         for (auto const& lit : literals) {
             std::cout << "result: " << lit << '\n';
+        }
+        if(!parse_ok) {
+            std::cout << "Rest:\n----8<----\n" << std::string(first, input.end()) << "---->8----\n";
         }
     }
     catch (std::exception const& e) {

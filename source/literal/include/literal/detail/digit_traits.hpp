@@ -19,12 +19,15 @@ namespace detail {
 ///
 /// Usage, e.g.:
 /// @code{.cpp}
-/// assert(std::string_view{ "123456789" }.size() <= (digits_traits<std::uint32_t, 2>::value));
+/// assert(std::string_view{ "123456789" }.size() <= (digits_traits_v<std::uint32_t, 2>));
 /// @endcode
 ///
 template <typename T, unsigned Radix>
 struct digits_traits : boost::spirit::x3::detail::digits_traits<T, Radix> {
 };
+
+template <typename T, unsigned Radix>
+static std::size_t constexpr digits_traits_v = digits_traits<T, Radix>::value;
 
 }  // namespace detail
 }  // namespace convert
@@ -36,7 +39,7 @@ template<typename T, unsigned Base>
 auto constexpr digits_base = []() {
     static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>,
                   "T must be of unsigned integral type");
-    static_assert( Base > 1 && Base < 37, "Base must be in range [2, 36]");
+    static_assert( 2 <= Base && Base <= 36, "Base must be in range [2, 36]");
 #if 0 // HAVE_CONSTEXPR_LOG10
     auto constexpr logx = [](double base, double x) {
         return std::log10(x) / std::log10(base);
@@ -65,40 +68,8 @@ void show_digits()
         digits_n
         );
 
-    static_assert(digits_base<T,  2>() == convert::detail::digits_traits<T,  2>::value);
-    static_assert(digits_base<T,  3>() == convert::detail::digits_traits<T,  3>::value);
-    static_assert(digits_base<T,  4>() == convert::detail::digits_traits<T,  4>::value);
-    static_assert(digits_base<T,  5>() == convert::detail::digits_traits<T,  5>::value);
-    static_assert(digits_base<T,  6>() == convert::detail::digits_traits<T,  6>::value);
-    static_assert(digits_base<T,  7>() == convert::detail::digits_traits<T,  7>::value);
-    static_assert(digits_base<T,  8>() == convert::detail::digits_traits<T,  8>::value);
-    static_assert(digits_base<T,  9>() == convert::detail::digits_traits<T,  9>::value);
-    static_assert(digits_base<T, 10>() == convert::detail::digits_traits<T, 10>::value);
-    static_assert(digits_base<T, 11>() == convert::detail::digits_traits<T, 11>::value);
-    static_assert(digits_base<T, 12>() == convert::detail::digits_traits<T, 12>::value);
-    static_assert(digits_base<T, 13>() == convert::detail::digits_traits<T, 13>::value);
-    static_assert(digits_base<T, 14>() == convert::detail::digits_traits<T, 14>::value);
-    static_assert(digits_base<T, 15>() == convert::detail::digits_traits<T, 15>::value);
-    static_assert(digits_base<T, 16>() == convert::detail::digits_traits<T, 16>::value);
-    static_assert(digits_base<T, 17>() == convert::detail::digits_traits<T, 17>::value);
-    static_assert(digits_base<T, 18>() == convert::detail::digits_traits<T, 18>::value);
-    static_assert(digits_base<T, 19>() == convert::detail::digits_traits<T, 19>::value);
-    static_assert(digits_base<T, 20>() == convert::detail::digits_traits<T, 20>::value);
-    static_assert(digits_base<T, 21>() == convert::detail::digits_traits<T, 21>::value);
-    static_assert(digits_base<T, 22>() == convert::detail::digits_traits<T, 22>::value);
-    static_assert(digits_base<T, 23>() == convert::detail::digits_traits<T, 23>::value);
-    static_assert(digits_base<T, 24>() == convert::detail::digits_traits<T, 24>::value);
-    static_assert(digits_base<T, 25>() == convert::detail::digits_traits<T, 25>::value);
-    static_assert(digits_base<T, 26>() == convert::detail::digits_traits<T, 26>::value);
-    static_assert(digits_base<T, 27>() == convert::detail::digits_traits<T, 27>::value);
-    static_assert(digits_base<T, 28>() == convert::detail::digits_traits<T, 28>::value);
-    static_assert(digits_base<T, 29>() == convert::detail::digits_traits<T, 29>::value);
-    static_assert(digits_base<T, 30>() == convert::detail::digits_traits<T, 30>::value);
-    static_assert(digits_base<T, 31>() == convert::detail::digits_traits<T, 31>::value);
-    static_assert(digits_base<T, 32>() == convert::detail::digits_traits<T, 32>::value);
-    static_assert(digits_base<T, 33>() == convert::detail::digits_traits<T, 33>::value);
-    static_assert(digits_base<T, 34>() == convert::detail::digits_traits<T, 34>::value);
-    static_assert(digits_base<T, 35>() == convert::detail::digits_traits<T, 35>::value);
-    static_assert(digits_base<T, 36>() == convert::detail::digits_traits<T, 36>::value);
+    static_assert(digits_base<T,  2>() == convert::detail::digits_traits_v<T,  2>);
+    // ...
+    static_assert(digits_base<T, 36>() == convert::detail::digits_traits_v<T, 36>);
 }
 #endif

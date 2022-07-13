@@ -10,6 +10,8 @@
 #include <range/v3/view/join.hpp>
 #include <range/v3/range/conversion.hpp>
 
+#include <literal/detail/constraint_types.hpp>
+
 #include <string_view>
 #include <string>
 #include <cassert>
@@ -46,15 +48,12 @@ auto const based_charset = [](unsigned base)
     namespace views = ranges::views;
 
     static auto constexpr digits = "0123456789"sv;
-    static auto constexpr lower_case = "abcdefghijklmnopqrstuvwxyz"sv;
-    static auto constexpr upper_case = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"sv;
-    auto constexpr MAX_BASE = digits.size() + lower_case.size();
+    static auto constexpr lower_letters = "abcdefghijklmnopqrstuvwxyz"sv;
+    static auto constexpr upper_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"sv;
+    auto constexpr MAX_BASE = digits.size() + lower_letters.size();
 
-    static_assert(lower_case.size() == upper_case.size(), "");
-    if(!(base >= 2 && base <= MAX_BASE)) {
-        std::cerr << "Attempt to get charset for invalid base " << base << '\n';
-    }
-    assert((base >= 2 && base <= MAX_BASE) && "Base must be in range [2, 36]");
+    static_assert(lower_letters.size() == upper_letters.size(), "");
+    assert((2 <= base && base <= MAX_BASE) && "Base must be in range [2, 36]");
 
     auto const dig_idx = base < digits.size() ? base : digits.size();
     auto const chr_idx = base > digits.size() ? base - dig_idx : 0;
@@ -62,8 +61,8 @@ auto const based_charset = [](unsigned base)
     // clang-format off
     auto const char_list = {
         std::string_view(digits.data(), dig_idx),
-        std::string_view(lower_case.data(), chr_idx),
-        std::string_view(upper_case.data(), chr_idx)
+        std::string_view(lower_letters.data(), chr_idx),
+        std::string_view(upper_letters.data(), chr_idx)
     };
     // clang-format on
     return ranges::to<std::string>(char_list | views::join);
@@ -144,7 +143,7 @@ struct join
 template <String... Strs>
 static constexpr auto join_v = join<Strs...>::value;
 
-template<unsigned Base>
+template<unsigned Base> requires BasicBaseRange<Base>
 std::string_view constexpr based_charset_gen()
 {
     using namespace std::string_view_literals;
@@ -157,7 +156,7 @@ std::string_view constexpr based_charset_gen()
     auto constexpr MAX_BASE = digits.size() + lower_case.size();
 
     static_assert(lower_case.size() == upper_case.size(), "");
-    static_assert((Base >= 2) && (Base <= MAX_BASE), "Base must be in range [2, 36]");
+    static_assert(2 <= Base && Base <= MAX_BASE, "Base must be in range [2, 36]");
 
     auto constexpr dig_idx = Base < digits.size() ? Base : digits.size();
     auto constexpr chr_idx = Base > digits.size() ? Base - dig_idx : 0;

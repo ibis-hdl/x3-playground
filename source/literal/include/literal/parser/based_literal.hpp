@@ -25,8 +25,9 @@ namespace detail {
 // BNF base ::= integer
 struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
 
-    // an extra context is used to write the base specifier into
+    // an extra context is used to write the base specifier attribute into
     using attribute_type = x3::unused_type;
+    static bool const has_attribute = false;
 
     template <typename IteratorT, typename ContextT>
     bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
@@ -44,7 +45,7 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
 
         std::error_code ec;
         // base specifier is always decimal
-        auto const base_result = convert::detail::as_unsigned<unsigned>(base_literal_str, 10U, ec);
+        auto const base_result = convert::detail::as_integral_integer<unsigned>(10U, base_literal_str, ec);
 
         if (ec) {
             std::cerr << "error: " << ec.message() << " '" << base_literal_str << "'\n";
@@ -127,9 +128,8 @@ struct based_real_parser : x3::parser<based_real_parser> {
 
         // Note: the base has been initialized by outer rule before
         attribute.base = x3::get<based_integer_base_tag>(ctx);
-        unsigned const base = attribute.base;
 
-        auto const based_integer = char_parser::based_integer<IteratorT>(base);
+        auto const based_integer = char_parser::based_integer<IteratorT>(attribute.base);
         using detail::signed_exp;
 
         auto const grammar =  // use lexeme[] from outer parser

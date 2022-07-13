@@ -20,7 +20,7 @@ namespace parser {
 namespace x3 = boost::spirit::x3;
 
 // BNF: bit_string_literal ::= base_specifier " [ bit_value ] "
-// TODO: ATTENTION:  In VHDL-1993 hexadecimal bit-string literals always contain a
+// ATTENTION:  In VHDL-1993 hexadecimal bit-string literals always contain a
 // multiple of 4 bits, and octal ones a multiple of 3 bits. VHDL-2008 they may have:
 // - an explicit width,
 // - declared as signed or unsigned (e.g. UB, UX, SB, SX,...)
