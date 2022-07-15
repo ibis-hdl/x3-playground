@@ -27,8 +27,13 @@ configure_file(
   ${PROJECT_BINARY_DIR}/include/literal/detail/int_types.hpp
 )
 
-# TODO: Add ASAN @debug mode
-# https://stackoverflow.com/questions/44320465/whats-the-proper-way-to-enable-addresssanitizer-in-cmake-that-works-in-xcode
+if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+  target_compile_options(${PROJECT_NAME} PRIVATE /fsanitize=address)
+  target_link_options(${PROJECT_NAME} PRIVATE /fsanitize=address)
+else()
+  target_compile_options(${PROJECT_NAME} PRIVATE -fsanitize=address,undefined)
+  target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address,undefined)
+endif()
 
 target_include_directories(
   ${PROJECT_NAME} PRIVATE
