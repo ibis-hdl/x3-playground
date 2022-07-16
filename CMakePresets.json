@@ -390,7 +390,7 @@
             "description": "used by the ci pipeline",
             "inherits": [
                 "ci-linux-default",
-                "linux-clang-release"
+                "linux-clang-debug"
             ]
         },
         {
@@ -399,7 +399,7 @@
             "description": "used by the ci pipeline",
             "inherits": [
                 "ci-linux-default",
-                "linux-gcc-release"
+                "linux-gcc-debug"
             ]
         },
         {
@@ -408,7 +408,7 @@
             "description": "used by the ci pipeline",
             "inherits": [
                 "ci-windows-default",
-                "windows-msvc-release"
+                "windows-msvc-debug"
             ]
         },
         {
@@ -417,7 +417,7 @@
             "description": "used by the ci pipeline",
             "inherits": [
                 "ci-macos-default",
-                "macos-clang-release"
+                "macos-clang-debug"
             ]
         },
         {
@@ -426,7 +426,7 @@
             "description": "Linux/WSL2 LLVM Clang compiler Developer Mode",
             "inherits": [
                 "linux-clang-default",
-                "release-build",
+                "debug-build",
                 "clang-tidy"
             ],
             "cacheVariables": {
