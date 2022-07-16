@@ -46,7 +46,8 @@ std::uint32_t chr2dec(char chr);
 template <IntergralType TargetT>
 static inline auto as_integral_integer(unsigned base, std::string_view literal, std::error_code& ec)
 {
-    assert(!literal.empty() && "Attempt to to convert empty literal");
+    // got wrong results if the exponent is empty
+    assert(!literal.empty() && "Attempt to to convert an empty literal");
 
     auto const clean_literal = convert::detail::remove_underline(literal);
     return from_chars<TargetT>(base, clean_literal, ec);
@@ -125,9 +126,17 @@ struct convert_real {
     {
         //std::cout << "convert_real '" << real << "'\n";
 
+        // This intermediate type is required for converting parts of the real literal to
+        // integer counterparts.
+        // FixMe: make the concrete type depend on same IntergralType used for integer part. The
+        // intent is to use the full sized table of this type; e.g. we ignored values if this type
+        // would be of 64-bit.
+        using promote_integer_type = std::uint32_t; // XXX
+
         if(real.base == 10U) {
             // std::from_chars() directly supports base 10 floating-point/real types
-            auto const real_string = as_real10_string(real);
+            auto const has_exponent = real.exponent.empty() == false;
+            auto const real_string = as_real_string(real, has_exponent);
             auto const real_result = detail::from_chars<RealT>(real.base, real_string, ec);
 
             if (ec) {
@@ -137,12 +146,43 @@ struct convert_real {
             return real_result;
         }
 
-        // FixMe: make the concrete type depend on same IntergralType used for integer part. The
-        // intent is to use the full sized table of this type; e.g. we ignored values if this type
-        // would be of 64-bit.
-        using promote_type = std::uint32_t; // XXX
+        if(real.base == 16U) {
+            // std::from_chars() directly supports base 16 floating-point/real types; but the
+            // exponent support is of base 2, so use it without and multiply with the exponent
+            // of base 16.
+            // concept [coliru](https://coliru.stacked-crooked.com/a/596e7723bb7dc531)
+            auto const with_exponent = false;
+            auto const real_string = as_real_string(real, with_exponent);
+            auto const real_result = detail::from_chars<RealT>(real.base, real_string, ec);
 
-        auto const int_result = detail::as_integral_integer<promote_type>(real.base, real.integer, ec);
+            if (ec) {
+                // error from std::from_chars() or exponent overflow
+                return {};
+            }
+
+            if (real.exponent.empty()) {
+                // nothings more to do
+                return real_result;
+            }
+
+            auto const exp_scale = real_exponent<promote_integer_type>(real.base, real.exponent, ec);
+
+            if (ec) {
+                // error from std::from_chars() or exponent overflow
+                return {};
+            }
+
+            auto const result = ::util::mul<RealT>(real_result, exp_scale, ec);
+
+            if (ec) {
+                // numeric range overflow
+                return {};
+            }
+
+            return result;
+        }
+
+        auto const int_result = detail::as_integral_integer<promote_integer_type>(real.base, real.integer, ec);
 
         if (ec) {
             // error from std::from_chars() or exponent overflow
@@ -162,7 +202,7 @@ struct convert_real {
             return real_result;
         }
 
-        auto const exp_scale = real_exponent<promote_type>(real.base, real.exponent, ec);
+        auto const exp_scale = real_exponent<promote_integer_type>(real.base, real.exponent, ec);
 
         if (ec) {
             // error from std::from_chars() or exponent overflow
@@ -180,15 +220,12 @@ struct convert_real {
     }
 
 private:
-    // join all parsed elements and prune delimiter '_' to be prepared for indirect call
-    // of `from_chars()`. The result is a C++ standard conformance float string.
+    // Join all parsed elements and prune delimiter '_' to prepare for call of
+    // `from_chars()`. The result is a C++ standard conformance float string.
     // Concept: @see [godbolt.org](https://godbolt.org/z/KroM7oxc5)
-    // @note The approach joining real parts into single one does work only for decimal
-    // real, with e.g. hex the literal '16#AFFE_1.0Cafe#e-10' becomes 'AFFE_1.0Cafee-10',
-    // which is wrong!
-    // @note Care must be taken on stack-use-after-scope
+    // @note To return a string prevents stack-use-after-scope, see
     // ([godbolt](https://godbolt.org/z/vr39h7Y8d)) but not relevant since std::string is returned.
-    std::string as_real10_string(ast::real_type const& real) const
+    std::string as_real_string(ast::real_type const& real, bool with_exponent) const
     {
         using namespace std::literals::string_view_literals;
 
@@ -200,18 +237,19 @@ private:
 
         auto const as_sv = [](std::string const& str) { return std::string_view(str); };
 
-        if (real.exponent.empty()) {
+        if (with_exponent) {
             // clang-format off
             auto const literal_list = {
-                as_sv(real.integer), "."sv, as_sv(real.fractional)
+                as_sv(real.integer), "."sv, as_sv(real.fractional), "e"sv, as_sv(real.exponent)
             };
             // clang-format on
+
             return remove_underline(literal_list);
         }
 
         // clang-format off
         auto const literal_list = {
-            as_sv(real.integer), "."sv, as_sv(real.fractional), "e"sv, as_sv(real.exponent)
+            as_sv(real.integer), "."sv, as_sv(real.fractional)
         };
         // clang-format on
 

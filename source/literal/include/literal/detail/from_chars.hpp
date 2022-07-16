@@ -40,9 +40,22 @@ template<RealType RealT>
 struct std_from_chars<RealT> {
     static auto call(const char* const first, const char* const last, RealT& value, unsigned base)
     {
-        assert(base == 10U && "Only Base = 10 is supported for floating point types");
-
-        return std::from_chars(first, last, value, std::chars_format::general);
+        switch(base) {
+            case 10:
+                return std::from_chars(first, last, value, std::chars_format::general);
+            case 16:
+                // This floating-point literal must not have an exponent as in C++ the exponent
+                // is of base 2, see [Floating-point literal](
+                //  https://en.cppreference.com/w/cpp/language/floating_literal)
+                return std::from_chars(first, last, value, std::chars_format::hex);
+            default:
+                // Support of other bases for floating-point literal as `std::from_chars()` 
+                // does is misleading.
+                assert(false && "Only Base 10 and 16 (without exponent) is supported for floating point types");
+        }
+        assert(false && "Wrong code path");
+        // make the compiler quiet
+        return std::from_chars_result{ first, std::errc::invalid_argument };
     }
 };
 
@@ -71,7 +84,7 @@ private:
     // removes a positive sign in front of the literal due to requirements of used underlying
     // [from_chars](https://en.cppreference.com/w/cpp/utility/from_chars):
     // "the plus sign is not recognized outside of the exponent" - for VHDL's integer exponent
-    // this is allowed, and it's a valid rule for outer parser!
+    // it is allowed, and hence a valid rule for outer parser!
     static std::string_view remove_positive_sign(std::string_view literal) {
         if (literal.size() > 0 && literal[0] == '+') {
             literal.remove_prefix(1);
