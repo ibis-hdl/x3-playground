@@ -28,11 +28,11 @@ configure_file(
 )
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-  target_compile_options(${PROJECT_NAME} PRIVATE /fsanitize=address)
-  target_link_options(${PROJECT_NAME} PRIVATE /fsanitize=address)
+  target_compile_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Debug>:/fsanitize=address>")
+  target_link_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Debug>:/fsanitize=address>")
 else()
-  target_compile_options(${PROJECT_NAME} PRIVATE -fsanitize=address,undefined)
-  target_link_options(${PROJECT_NAME} PRIVATE -fsanitize=address,undefined)
+  target_compile_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Debug>:-fsanitize=address,undefined>")
+  target_link_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Debug>:-fsanitize=address,undefined>")
 endif()
 
 target_include_directories(
