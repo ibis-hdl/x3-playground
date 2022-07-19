@@ -12,6 +12,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/literal.cpp
   src/ast.cpp
   src/convert.cpp
+  src/leaf_errors.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

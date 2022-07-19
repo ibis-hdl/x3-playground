@@ -25,6 +25,7 @@ namespace char_parser {
 
 // FixMe: [Misunderstanding repeat directive - it should fail, but doesn't](
 // https://stackoverflow.com/questions/72915071/misunderstanding-repeat-directive-it-should-fail-but-doesnt/72916318#72916318)
+// FixMe: Limit digits
 auto const delimit_numeric_digits = [](auto&& char_range, char const* name) {
     auto cs = x3::char_(char_range);
     // clang-format off
@@ -42,8 +43,7 @@ static auto const hex_integer = delimit_numeric_digits("0-9a-fA-F", "hexadecimal
 /// create charsets by given base
 /// concept [godbolt.org](https://godbolt.org/z/T5YEYhE54)
 ///
-auto const based_charset = [](unsigned base)
-{
+auto const based_charset = [](unsigned base) {
     using namespace std::string_view_literals;
     namespace views = ranges::views;
 
@@ -68,16 +68,15 @@ auto const based_charset = [](unsigned base)
     return ranges::to<std::string>(char_list | views::join);
 };
 
-template<typename IteratorT>
+template <typename IteratorT>
 struct based_integer_parser {
-    auto operator()(unsigned base, char const* name = "based integer") const {
+    auto operator()(unsigned base, char const* name = "based integer") const
+    {
         auto const as = [](auto&& derived_parser) {
-            return x3::any_parser<IteratorT, std::string>{
-                x3::as_parser(derived_parser)
-            };
+            return x3::any_parser<IteratorT, std::string>{ x3::as_parser(derived_parser) };
         };
 
-        switch(base) {
+        switch (base) {
             case 2:
                 return as(bin_integer);
             case 8:
@@ -92,7 +91,7 @@ struct based_integer_parser {
     }
 };
 
-template<typename IteratorT>
+template <typename IteratorT>
 static based_integer_parser<IteratorT> const based_integer = {};
 
 namespace detail {
@@ -104,25 +103,18 @@ namespace detail {
 // original idea, @see [How to concatenate static strings at compile time?](
 // https://stackoverflow.com/questions/38955940/how-to-concatenate-static-strings-at-compile-time)
 //
-template<std::size_t n>
-struct String
-{
+template <std::size_t n>
+struct String {
     std::array<char, n> p{};
 
     constexpr String() = default;
 
-    constexpr String(char const(&pp)[n]) noexcept {
-        std::ranges::copy(pp, std::begin(p));
-    };
-    constexpr String(char const* pp) noexcept {
-        std::ranges::copy_n(pp, n, std::begin(p));
-    };
-    constexpr operator std::string_view() const noexcept {
-        return {std::data(p), std::size(p)};
-    }
+    constexpr String(char const (&pp)[n]) noexcept { std::ranges::copy(pp, std::begin(p)); };
+    constexpr String(char const* pp) noexcept { std::ranges::copy_n(pp, n, std::begin(p)); };
+    constexpr operator std::string_view() const noexcept { return { std::data(p), std::size(p) }; }
 };
 
-template<size_t n_lhs, size_t n_rhs>
+template <size_t n_lhs, size_t n_rhs>
 constexpr String<n_lhs + n_rhs> operator+(String<n_lhs> lhs, String<n_rhs> rhs)
 {
     String<n_lhs + n_rhs> ret(std::data(lhs.p));
@@ -131,20 +123,20 @@ constexpr String<n_lhs + n_rhs> operator+(String<n_lhs> lhs, String<n_rhs> rhs)
 }
 
 template <String... Strs>
-struct join
-{
+struct join {
     // Join all strings into a single std::array of chars in static storage
     static constexpr auto arr = (Strs + ...);
     // View as a std::string_view
-    static constexpr std::string_view value {arr};
+    static constexpr std::string_view value{ arr };
 };
 
 // Helper to get the value out
 template <String... Strs>
 static constexpr auto join_v = join<Strs...>::value;
 
-template<unsigned Base> requires BasicBaseRange<Base>
-std::string_view constexpr based_charset_gen()
+template <unsigned Base>
+requires BasicBaseRange<Base>  // --
+    std::string_view constexpr based_charset_gen()
 {
     using namespace std::string_view_literals;
 
@@ -172,9 +164,9 @@ std::string_view constexpr based_charset_gen()
     return chrset;
 }
 
-} // namespace detail
+}  // namespace detail
 
-//static auto const dec_charset = detail::based_charset_gen<10>();
+// static auto const dec_charset = detail::based_charset_gen<10>();
 
 }  // namespace char_parser
 }  // namespace parser

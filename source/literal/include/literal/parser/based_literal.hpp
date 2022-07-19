@@ -5,8 +5,16 @@
 
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
+#include <literal/parser/error_handler.hpp>
+//#include <literal/parser/util/iterator_sentry.hpp>
+#include <literal/detail/leaf_error_handler.hpp>
+#include <literal/convert.hpp>
 
 #include <boost/spirit/home/x3.hpp>
+
+#include <boost/leaf.hpp>
+
+#include <fmt/format.h>
 
 #include <cmath>
 #include <limits>
@@ -17,6 +25,7 @@
 namespace parser {
 
 namespace x3 = boost::spirit::x3;
+namespace leaf = boost::leaf;
 
 using based_integer_base_tag = struct {};
 
@@ -24,14 +33,13 @@ namespace detail {
 
 // BNF base ::= integer
 struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
-
     // an extra context is used to write the base specifier attribute into
     using attribute_type = x3::unused_type;
     static bool const has_attribute = false;
 
     template <typename IteratorT, typename ContextT>
-    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
-               x3::unused_type, x3::unused_type) const
+    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx, x3::unused_type,
+               x3::unused_type) const
     {
         auto const begin = first;
 
@@ -43,19 +51,9 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
             return false;
         }
 
-        std::error_code ec;
-        // base specifier is always decimal
-        auto const base_result = convert::detail::as_integral_integer<unsigned>(10U, base_literal_str, ec);
+        auto const calc_ok = calculate_value(base_literal_str, ctx);
 
-        if (ec) {
-            std::cerr << "error: " << ec.message() << " '" << base_literal_str << "'\n";
-            return false;
-        }
-
-        // store the parsed base for use at based_{real, integer} later
-        x3::get<based_integer_base_tag>(ctx) = base_result;
-
-        if (!supported_base(base_result)) {
+        if (!calc_ok) {
             first = begin;
             return false;
         }
@@ -66,10 +64,29 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
 private:
     static bool supported_base(unsigned base)
     {
-        if (base == 2 || base == 8 || base == 10 || base == 16) {
+        if (base == 2U || base == 8U || base == 10U || base == 16U) {
             return true;
         }
         return false;
+    }
+
+    template <typename ContextT>
+    static bool calculate_value(std::string_view base_literal_str, ContextT const& ctx)
+    {
+        return leaf::try_catch(
+            [&] {
+                // base specifier is always decimal
+                static auto constexpr base10 = 10U;
+
+                // LEAF - from_chars() may fail
+                auto const base_result =
+                    convert::detail::as_integral_integer<unsigned>(base10, base_literal_str);
+                // store the parsed base for use at based_{real, integer} later
+                x3::get<based_integer_base_tag>(ctx) = base_result;
+
+                return true;
+            },
+            convert::leaf_error_handlers);
     }
 };
 
@@ -80,16 +97,15 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
     using attribute_type = ast::integer_type;
 
     template <typename IteratorT, typename ContextT>
-    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
-               x3::unused_type, attribute_type& attribute) const
+    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx, x3::unused_type,
+               attribute_type& attribute) const
     {
         auto const begin = first;
 
         // Note: the base has been initialized by outer rule before
         attribute.base = x3::get<based_integer_base_tag>(ctx);
-        unsigned const base = attribute.base;
 
-        auto const based_integer = char_parser::based_integer<IteratorT>(base);
+        auto const based_integer = char_parser::based_integer<IteratorT>(attribute.base);
         using detail::unsigned_exp;
 
         auto const grammar =  // use lexeme[] from outer parser
@@ -102,16 +118,26 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
             return false;
         }
 
-        std::error_code ec{};
-        attribute.value = convert::integer<attribute_type::value_type>(attribute, ec);
+        auto const calc_ok = calculate_value(attribute);
 
-        if (ec) {
-            std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
+        if (!calc_ok) {
             first = begin;
             return false;
         }
 
         return true;
+    }
+
+private:
+    static bool calculate_value(attribute_type& attribute)
+    {
+        return leaf::try_catch(
+            [&] {
+                // LEAF - from_chars() or power() may fail
+                attribute.value = convert::integer<attribute_type::value_type>(attribute);
+                return true;
+            },
+            convert::leaf_error_handlers);
     }
 };
 
@@ -121,8 +147,8 @@ struct based_real_parser : x3::parser<based_real_parser> {
     using attribute_type = ast::real_type;
 
     template <typename IteratorT, typename ContextT>
-    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
-               x3::unused_type, attribute_type& attribute) const
+    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx, x3::unused_type,
+               attribute_type& attribute) const
     {
         auto const begin = first;
 
@@ -142,42 +168,51 @@ struct based_real_parser : x3::parser<based_real_parser> {
             return false;
         }
 
-        std::error_code ec{};
-        attribute.value = convert::real<attribute_type::value_type>(attribute, ec);
+        auto const calc_ok = calculate_value(attribute);
 
-        if (ec) {
-            std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
+        if (!calc_ok) {
             first = begin;
             return false;
         }
 
         return true;
     }
+
+private:
+    static bool calculate_value(attribute_type& attribute)
+    {
+        return leaf::try_catch(
+            [&] {
+                // LEAF - from_chars() or power() may fail
+                attribute.value = convert::real<attribute_type::value_type>(attribute);
+                return true;
+            },
+            convert::leaf_error_handlers);
+    }
 };
 
 static based_real_parser const based_real = {};
 
-} // namespace detail
+}  // namespace detail
 
 struct based_literal_parser : x3::parser<based_literal_parser> {
-
     using attribute_type = ast::based_literal;
 
     template <typename IteratorT, typename ContextT>
-    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx,
-               x3::unused_type, attribute_type& attribute) const
+    bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx, x3::unused_type,
+               attribute_type& attribute) const
     {
         skip_over(first, last, ctx);
         auto const begin = first;
 
         using detail::based_base_specifier;
-        using detail::based_real;
         using detail::based_integer;
+        using detail::based_real;
 
         // store the parsed base (specifier) for use at based_{real, integer}, by introducing an
         // extra context
         // clang-format off
-        auto const grammar = x3::with<based_integer_base_tag>(unsigned{} /* base */)[  //
+        auto const grammar = x3::with<based_integer_base_tag>(unsigned{} /* base */)[
             x3::lexeme[
                 based_base_specifier >> '#' >> (based_real | based_integer)
             ]
@@ -197,4 +232,45 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
 
 static based_literal_parser const based_literal = {};
 
-} // namespace parser
+}  // namespace parser
+
+namespace boost::spirit::x3 {
+
+template <>
+struct get_info<::parser::detail::based_base_specifier_parser> {
+    using result_type = std::string;
+    std::string operator()(
+        [[maybe_unused]] ::parser::detail::based_base_specifier_parser const&) const
+    {
+        return "based literal (base)";
+    }
+};
+
+template <>
+struct get_info<::parser::detail::based_integer_parser> {
+    using result_type = std::string;
+    std::string operator()([[maybe_unused]] ::parser::detail::based_integer_parser const&) const
+    {
+        return "based literal (integer)";
+    }
+};
+
+template <>
+struct get_info<::parser::detail::based_real_parser> {
+    using result_type = std::string;
+    std::string operator()([[maybe_unused]] ::parser::detail::based_real_parser const&) const
+    {
+        return "based literal (real)";
+    }
+};
+
+template <>
+struct get_info<::parser::based_literal_parser> {
+    using result_type = std::string;
+    std::string operator()([[maybe_unused]] ::parser::based_literal_parser const&) const
+    {
+        return "based literal";
+    }
+};
+
+}  // namespace boost::spirit::x3

@@ -5,15 +5,23 @@
 
 #pragma once
 
-#include <type_traits>
-#include <limits>
-#include <cstdint>
-#include <system_error>
-
 #include <literal/detail/int_types.hpp>
 #include <literal/detail/constraint_types.hpp>
 
+#include <boost/leaf/exception.hpp>
+#include <boost/leaf/common.hpp>
+#include <literal/detail/leaf_errors.hpp>
+
+#include <type_traits>
+#include <limits>
+#include <cstdint>
+#include <cfenv>
+#include <system_error>
+#include <iostream>
+
 namespace util {
+
+namespace leaf = boost::leaf;
 
 namespace detail {
 
@@ -47,15 +55,24 @@ struct promote<double> {
 template <typename T>
 using promote_t = typename promote<T>::type;
 
+// low overhead math, where [Safe Numerics](
+//  https://www.boost.org/doc/libs/develop/libs/safe_numerics/doc/html/index.html)
+// would be overkill
+//
+// FixMe: rewrote to generalize the implementations, e.g.
+//   binary_operation<T, operation<T>> where operation<T> is mul, add, ...
+// working on:https://godbolt.org/z/T7xeh7d6W
+// SO: https://stackoverflow.com/questions/73066724/cant-check-for-overflow-of-double-float-operations-by-use-of-machines-epsilon
+// Problem with overflow detection of double
 
 // Select numeric implementation ((unsigned) integer and real)
 // concept see [coliru](https://coliru.stacked-crooked.com/a/dd9e4543247597ad)
-template <typename T, class Enable = void>
+template <typename T>
 struct safe_mul {
     static_assert(nostd::always_false<T>, "unsupported numeric type");
 };
 
-template <typename T, class Enable = void>
+template <typename T>
 struct safe_add {
     static_assert(nostd::always_false<T>, "unsupported numeric type");
 };
@@ -64,59 +81,63 @@ struct safe_add {
 // [Catch and compute overflow during multiplication of two large integers](
 //  https://stackoverflow.com/questions/1815367/catch-and-compute-overflow-during-multiplication-of-two-large-integers)
 template <IntergralType IntT>
-struct safe_mul<IntT>
-{
-    IntT operator()(IntT lhs, IntT rhs, std::error_code& ec) const
+struct safe_mul<IntT> {
+    IntT operator()(IntT lhs, IntT rhs) const
     {
         auto const result = static_cast<promote_t<IntT>>(lhs) * rhs;
 
         if (result > std::numeric_limits<IntT>::max()) {
-            ec = std::make_error_code(std::errc::value_too_large);
+            auto const ec = std::make_error_code(std::errc::result_out_of_range);
+            throw leaf::exception(ec, leaf::e_api_function{ "safe_mul<IntT>" });
         }
         return static_cast<IntT>(result);
     }
 };
 
-// FixMe: Support [FP exceptions](https://en.cppreference.com/w/cpp/numeric/fenv/FE_exceptions)
 template <RealType RealT>
-struct safe_mul<RealT>
-{
-    RealT operator()(RealT lhs, RealT rhs, std::error_code& ec) const
+struct safe_mul<RealT> {
+    RealT operator()(RealT lhs, RealT rhs) const
     {
-        auto const result = static_cast<promote_t<RealT>>(lhs) * rhs;
+        std::feclearexcept(FE_ALL_EXCEPT);
 
-        if (result > std::numeric_limits<RealT>::max()) {
-            ec = std::make_error_code(std::errc::value_too_large);
+        auto const result = lhs * rhs;
+
+        int const fp_exception_raised = std::fetestexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
+
+        if (fp_exception_raised) {
+            std::feclearexcept(FE_ALL_EXCEPT);
+            auto const ec = std::error_code(errno, std::generic_category());
+            throw leaf::exception(ec, leaf::e_api_function{ "safe_mul<RealT>" },
+                                  leaf::e_fp_exception{ fp_exception_raised });
         }
-        return static_cast<RealT>(result);
+
+        return result;
     }
 };
 
-// FixMe: Support [FP exceptions](https://en.cppreference.com/w/cpp/numeric/fenv/FE_exceptions)
-// also covers MAX_DOUBLE + eps
 template <RealType RealT>
-struct safe_add<RealT>
-{
-    RealT operator()(RealT lhs, RealT rhs, std::error_code& ec) const
+struct safe_add<RealT> {
+    RealT operator()(RealT lhs, RealT rhs) const
     {
-        auto const result = static_cast<promote_t<RealT>>(lhs) + rhs;
+        std::feclearexcept(FE_ALL_EXCEPT);
 
-        if (result > std::numeric_limits<RealT>::max()) {
-            ec = std::make_error_code(std::errc::value_too_large);
+        auto const result = lhs + rhs;
+
+        int const fp_exception_raised = std::fetestexcept(FE_ALL_EXCEPT & ~FE_INEXACT);
+
+        if (fp_exception_raised) {
+            std::feclearexcept(FE_ALL_EXCEPT);
+            auto const ec = std::error_code(errno, std::generic_category());
+            throw leaf::exception(ec, leaf::e_api_function{ "safe_add<RealT>" },
+                                  leaf::e_fp_exception{ fp_exception_raised });
         }
-        return static_cast<RealT>(result);
+
+        return result;
     }
 };
 
 }  // namespace detail
 
-// FixMe: rewrote to generalize the implementations, e.g.
-// binary_operation<T, operation<T>>
-// where operation<T> is mul, add, ...
-
-// low overhead math, where [Safe Numerics](
-//  https://www.boost.org/doc/libs/develop/libs/safe_numerics/doc/html/index.html)
-// would be overkill
 template <typename T>
 static detail::safe_mul<T> const mul = {};
 

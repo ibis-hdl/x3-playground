@@ -8,6 +8,7 @@
 #include <literal/parser/decimal_literal.hpp>
 #include <literal/parser/bit_string_literal.hpp>
 #include <literal/parser/based_literal.hpp>
+#include <literal/parser/error_handler.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
@@ -25,40 +26,12 @@ namespace x3 = boost::spirit::x3;
 
 namespace {
 
-// [Custom error on rule level? #657](https://github.com/boostorg/spirit/issues/657)
-// https://coliru.stacked-crooked.com/a/7fd3fbc8b2452590
-// for different error recovery strategies
-template <typename RuleID>
-struct my_error_handler {  // try to recover and continue to parse
-    template <typename It, typename Ctx>
-    auto on_error(It& first, It last, x3::expectation_failure<It> const& e, Ctx const& ctx) const
-    {
-        std::cerr << "error handler for RuleID: '" << typeid(RuleID).name() << "'\n";
-        auto& error_handler = x3::get<x3::error_handler_tag>(ctx);
-        auto const message = fmt::format("Error! Expecting {} here:", e.which());
-        error_handler(e.where(), message);
-        // FixMe: always true: e.where() == first ; see
-        // https://github.com/boostorg/spirit/issues/726 our error resolution strategy
-        auto const position = std::string_view(first, last).find_first_of(";");
-        if (position != std::string_view::npos) {
-            std::advance(first, position + 1);  // move iter behind
-            std::cout << fmt::format("Rest:\n---8<---\n{}\n--->8---\n",
-                                     std::string_view(first, last));
-        }
-        else {
-            first = last;  // no way here :(
-            return x3::error_handler_result::fail;
-        }
-        return x3::error_handler_result::accept;
-    }
-};
-
 // [How do I get which() to work correctly in boost spirit x3 expectation_failure?](
 // https://stackoverflow.com/questions/71281614/how-do-i-get-which-to-work-correctly-in-boost-spirit-x3-expectation-failure)
 template <typename RuleID, typename AttributeT = x3::unused_type>
 auto as(auto p, char const* name = typeid(decltype(p)).name())
 {
-    using tag = my_error_handler<RuleID>;
+    using tag = my_x3_error_handler<RuleID>;
     return x3::rule<tag, AttributeT>{ name } = p;
 }
 
@@ -75,7 +48,7 @@ struct mandatory_type {
     template <typename Expr>
     auto with_error_handler(Expr&& expr, char const* name = typeid(decltype(expr)).name()) const
     {
-        using tag = my_error_handler<RuleID>;
+        using tag = my_x3_error_handler<RuleID>;
         return x3::rule<tag, AttributeT>{ name } = x3::as_parser(std::forward<Expr>(expr));
     }
     template <typename Expr>
@@ -125,9 +98,9 @@ auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } 
         >> x3::expect[';'])
     ];
 
-struct based_literal_class : my_error_handler<based_literal_class> {};
-struct bit_string_literal_class : my_error_handler<bit_string_literal_class> {};
-struct grammar_class : my_error_handler<grammar_class> {};
+struct based_literal_class : my_x3_error_handler<based_literal_class> {};
+struct bit_string_literal_class : my_x3_error_handler<bit_string_literal_class> {};
+struct grammar_class : my_x3_error_handler<grammar_class> {};
 
 // clang-format on
 
@@ -184,14 +157,15 @@ int main()
 
         ast::literals literals;
         auto first = input.begin();
-        bool parse_ok = x3::parse(first, input.end(), grammar_ , literals);
+        bool parse_ok = x3::parse(first, input.end(), grammar_, literals);
 
         std::cout << fmt::format("complete parse ok is '{}'\nnumeric literals:\n", parse_ok);
         for (auto const& lit : literals) {
             std::cout << "result: " << lit << '\n';
         }
-        if(!parse_ok) {
-            std::cout << "Rest:\n----8<----\n" << std::string(first, input.end()) << "---->8----\n";
+        if (!parse_ok) {
+            // std::cout << "Rest:\n----8<----\n" << std::string(first, input.end()) <<
+            // "---->8----\n";
         }
     }
     catch (std::exception const& e) {

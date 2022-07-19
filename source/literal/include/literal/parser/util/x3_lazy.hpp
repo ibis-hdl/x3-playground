@@ -5,13 +5,14 @@
 
 #include <boost/spirit/home/x3.hpp>
 
-namespace parser::x3e { // Spirit x3 extended
+namespace parser::x3e {  // Spirit x3 extended
 
 namespace x3 = boost::spirit::x3;
 
 namespace detail {
 
-// [Boost spirit x3 - lazy parser with compile time known parsers, referring to a previously matched value](
+// [Boost spirit x3 - lazy parser with compile time known parsers, referring to a previously matched
+// value](
 //  https://stackoverflow.com/questions/72833517/boost-spirit-x3-lazy-parser-with-compile-time-known-parsers-referring-to-a-pr)
 
 template <typename...>
@@ -38,7 +39,7 @@ struct set_lazy_type {
 
 template <typename Tag>
 struct do_lazy_type : x3::parser<do_lazy_type<Tag>> {
-    using attribute_type = typename Tag::attribute_type;  // TODO FIXME?
+    using attribute_type = typename Tag::attribute_type;
 
     template <typename It, typename Ctx, typename RCtx, typename Attr>
     bool parse(It& first, It last, Ctx& ctx, RCtx& rctx, Attr& attr) const
@@ -72,4 +73,4 @@ static const detail::set_lazy_type<T> set_lazy{};
 template <typename T>
 static const detail::do_lazy_type<T> do_lazy{};
 
-} // namespace parser::x3e
+}  // namespace parser::x3e

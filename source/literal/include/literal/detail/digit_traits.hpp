@@ -40,12 +40,12 @@ auto constexpr digits_base = []() {
     static_assert(std::is_integral_v<T> && std::is_unsigned_v<T>,
                   "T must be of unsigned integral type");
     static_assert( 2 <= Base && Base <= 36, "Base must be in range [2, 36]");
-#if 0 // HAVE_CONSTEXPR_LOG10
+#if 0  // HAVE_CONSTEXPR_LOG10
     auto constexpr logx = [](double base, double x) {
         return std::log10(x) / std::log10(base);
     };
     return std::floor(std::numeric_limits<T>::digits / logx(2, Base));
-#else // MSVC
+#else  // MSVC
     // see concept [godbolt.org](https://godbolt.org/z/fzzq6hMnv)
     double param = std::numeric_limits<T>::max();
     std::size_t result = 0;

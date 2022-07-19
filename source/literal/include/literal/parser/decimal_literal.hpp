@@ -7,22 +7,27 @@
 
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
+#include <literal/parser/error_handler.hpp>
+#include <literal/detail/leaf_error_handler.hpp>
 #include <literal/convert.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 
-#include <cmath>
-#include <limits>
+#include <boost/leaf.hpp>
+
+#include <fmt/format.h>
 
 #include <range/v3/view/join.hpp>
 #include <range/v3/range/conversion.hpp>
 
+#include <cmath>
+#include <limits>
 #include <iostream>
-#include <iomanip>
 
 namespace parser {
 
 namespace x3 = boost::spirit::x3;
+namespace leaf = boost::leaf;
 
 namespace detail {
 
@@ -40,8 +45,6 @@ auto const exponent = [](auto&& signs) {
     );
 };
 // clang-format on
-
-// FixMe: Limit digits
 
 // clang-format off
 auto const signed_exp = x3::rule<struct _, std::string>{ "real exponent" } =
@@ -70,23 +73,34 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
             dec_integer >> !lit('#') >> -unsigned_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
-        attribute.base = 10U;  // decimal literal has base = 10
 
         if (!parse_ok) {
             first = begin;
             return false;
         }
 
-        std::error_code ec;
-        attribute.value = convert::integer<attribute_type::value_type>(attribute, ec);
+        attribute.base = 10U;  // decimal literal has always base = 10
 
-        if (ec) {
-            std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
+        auto const calc_ok = calculate_value(attribute);
+
+        if (!calc_ok) {
             first = begin;
             return false;
         }
 
         return true;
+    }
+
+private:
+    static bool calculate_value(attribute_type& attribute)
+    {
+        return leaf::try_catch(
+            [&] {
+                // LEAF - from_chars() or power() may fail
+                attribute.value = convert::integer<attribute_type::value_type>(attribute);
+                return true;
+            },
+            convert::leaf_error_handlers);
     }
 };
 
@@ -110,23 +124,34 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
             dec_integer >> '.' >> x3::expect[dec_integer] >> -signed_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
-        attribute.base = 10U;  // decimal literal has base = 10
 
         if (!parse_ok) {
             first = begin;
             return false;
         }
 
-        std::error_code ec;
-        attribute.value = convert::real<attribute_type::value_type>(attribute, ec);
+        attribute.base = 10U;  // decimal literal has always base = 10
 
-        if (ec) {
-            std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
+        auto const calc_ok = calculate_value(attribute);
+
+        if (!calc_ok) {
             first = begin;
             return false;
         }
 
         return true;
+    }
+
+private:
+    static bool calculate_value(attribute_type& attribute)
+    {
+        return leaf::try_catch(
+            [&] {
+                // LEAF - from_chars() or power() may fail
+                attribute.value = convert::real<attribute_type::value_type>(attribute);
+                return true;
+            },
+            convert::leaf_error_handlers);
     }
 };
 
@@ -146,12 +171,10 @@ struct decimal_literal_parser : x3::parser<decimal_literal_parser> {
 
         auto const begin = first;
 
-        using detail::decimal_real;
         using detail::decimal_integer;
+        using detail::decimal_real;
 
-        auto const grammar = x3::lexeme[
-            (decimal_real | decimal_integer)
-        ];
+        auto const grammar = x3::lexeme[(decimal_real | decimal_integer)];
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
@@ -162,9 +185,39 @@ struct decimal_literal_parser : x3::parser<decimal_literal_parser> {
 
         return true;
     }
-
 };
 
 static decimal_literal_parser const decimal_literal = {};
 
 }  // namespace parser
+
+namespace boost::spirit::x3 {
+
+template <>
+struct get_info<::parser::detail::decimal_integer_parser> {
+    using result_type = std::string;
+    std::string operator()([[maybe_unused]] ::parser::detail::decimal_integer_parser const&) const
+    {
+        return "decimal literal (integer)";
+    }
+};
+
+template <>
+struct get_info<::parser::detail::decimal_real_parser> {
+    using result_type = std::string;
+    std::string operator()([[maybe_unused]] ::parser::detail::decimal_real_parser const&) const
+    {
+        return "decimal literal (real)";
+    }
+};
+
+template <>
+struct get_info<::parser::decimal_literal_parser> {
+    using result_type = std::string;
+    std::string operator()([[maybe_unused]] ::parser::decimal_literal_parser const&) const
+    {
+        return "decimal literal";
+    }
+};
+
+}  // namespace boost::spirit::x3

@@ -6,6 +6,10 @@
 #pragma once
 
 #include <literal/detail/constraint_types.hpp>
+#include <literal/convert_error.hpp>
+
+#include <boost/leaf/exception.hpp>
+#include <boost/leaf/common.hpp>
 
 #include <charconv>
 #include <string>
@@ -18,29 +22,27 @@ namespace convert {
 
 namespace detail {
 
-template<typename T>
-struct std_from_chars
-{
+template <typename T>
+struct std_from_chars {
     static auto call(const char* const first, const char* const last, T& value, unsigned base)
     {
         static_assert(nostd::always_false<T>, "T must be of unsigned integral or float type");
     }
 };
 
-template<IntergralType IntT>
-struct std_from_chars<IntT>
-{
+template <IntergralType IntT>
+struct std_from_chars<IntT> {
     static auto call(const char* const first, const char* const last, IntT& value, unsigned base)
     {
         return std::from_chars(first, last, value, base);
     }
 };
 
-template<RealType RealT>
+template <RealType RealT>
 struct std_from_chars<RealT> {
     static auto call(const char* const first, const char* const last, RealT& value, unsigned base)
     {
-        switch(base) {
+        switch (base) {
             case 10:
                 return std::from_chars(first, last, value, std::chars_format::general);
             case 16:
@@ -49,12 +51,14 @@ struct std_from_chars<RealT> {
                 //  https://en.cppreference.com/w/cpp/language/floating_literal)
                 return std::from_chars(first, last, value, std::chars_format::hex);
             default:
-                // Support of other bases for floating-point literal as `std::from_chars()` 
+                // Support of other bases for floating-point literal as `std::from_chars()`
                 // does is misleading.
-                assert(false && "Only Base 10 and 16 (without exponent) is supported for floating point types");
+                assert(
+                    false &&
+                    "Only Base 10 and 16 (without exponent) is supported for floating point types");
         }
         assert(false && "Wrong code path");
-        // make the compiler quiet
+        // never goes here, but makes compiler quiet
         return std::from_chars_result{ first, std::errc::invalid_argument };
     }
 };
@@ -63,7 +67,7 @@ template <typename TargetT>
 class from_chars_api {
 public:
     // low level API, call `std::from_chars()`, literal must be pruned from delimiter '_'
-    TargetT operator()(unsigned base, std::string_view literal, std::error_code& ec) const
+    TargetT operator()(unsigned base, std::string_view literal) const
     {
         literal = remove_positive_sign(literal);
 
@@ -71,21 +75,23 @@ public:
 
         TargetT result;
         auto const [ptr, errc] = std_from_chars<TargetT>::call(literal.data(), end, result, base);
-        ec = get_error_code(ptr, end, errc);
-#if 0
-        std::cout << "from_chars_api: " << "b=" << base << "'" << literal << "' (";
-        if (ec) { std::cout << "fail)\n";  }
-        else { std::cout << "success = " << result << ")\n"; }
-#endif
+        auto const ec = get_error_code(ptr, end, errc);
+
+        if (ec) {
+            throw leaf::exception(ec, leaf::e_api_function{ "from_chars" },
+                                  leaf::e_position_iterator{ ptr });
+        }
+
         return result;
     }
 
 private:
     // removes a positive sign in front of the literal due to requirements of used underlying
-    // [from_chars](https://en.cppreference.com/w/cpp/utility/from_chars):
+    // [std::from_chars](https://en.cppreference.com/w/cpp/utility/from_chars):
     // "the plus sign is not recognized outside of the exponent" - for VHDL's integer exponent
     // it is allowed, and hence a valid rule for outer parser!
-    static std::string_view remove_positive_sign(std::string_view literal) {
+    static std::string_view remove_positive_sign(std::string_view literal)
+    {
         if (literal.size() > 0 && literal[0] == '+') {
             literal.remove_prefix(1);
         }
@@ -112,6 +118,6 @@ private:
 template <typename TargetT>
 static from_chars_api<TargetT> const from_chars = {};
 
-} // namespace detail
+}  // namespace detail
 
-} // namespace convert
+}  // namespace convert

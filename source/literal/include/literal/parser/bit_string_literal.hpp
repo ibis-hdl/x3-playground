@@ -5,19 +5,28 @@
 
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
-#include <literal/util/x3_lazy.hpp>
+#include <literal/parser/error_handler.hpp>
+#include <literal/parser/util/x3_lazy.hpp>
+#include <literal/convert_error.hpp>
+#include <literal/detail/leaf_error_handler.hpp>
+#include <literal/convert.hpp>
 
 #include <boost/spirit/home/x3.hpp>
+
+#include <boost/leaf.hpp>
 
 #include <range/v3/view/filter.hpp>
 #include <range/v3/range/conversion.hpp>
 #include <charconv>
+
+#include <fmt/format.h>
 
 #include <iostream>
 
 namespace parser {
 
 namespace x3 = boost::spirit::x3;
+namespace leaf = boost::leaf;
 
 // BNF: bit_string_literal ::= base_specifier " [ bit_value ] "
 // ATTENTION:  In VHDL-1993 hexadecimal bit-string literals always contain a
@@ -73,16 +82,61 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
             return false;
         }
 
-        std::error_code ec;
-        attribute.value = convert::bit_string_literal<attribute_type::value_type>(attribute, ec);
-
-        if (ec) {
-            std::cerr << "error: " << ec.message() << " '" << attribute << "'\n";
-            first = begin;
-            return false;
-        }
-
-        return true;
+        return leaf::try_catch(
+            [&] {
+                attribute.value =
+                    convert::bit_string_literal<attribute_type::value_type>(attribute);
+                return true;
+            },
+            [&](std::error_code const& ec, leaf::e_api_function const& api_fcn,
+                leaf::e_position_iterator<IteratorT> const& e_iter) {
+                // LEAF - from_chars()
+                std::cerr << fmt::format("LEAF: Error in api function '{}': {}\n", api_fcn.value,
+                                         ec.message());
+                boost::throw_exception(convert::numeric_failure<IteratorT>(
+                    // ex.where() - ex.which() - ex.what()
+                    e_iter, x3::what(*this), ec.message()));
+                first = begin;
+                return false;
+            },
+            [&](std::error_code const& ec, leaf::e_api_function const& api_fcn,
+                leaf::e_fp_exception fp_exception) {
+                // LEAF - safe_{mul,add}<RealT>
+                std::cerr << fmt::format("LEAF: Error in api function '{}': {} ({})\n",
+                                         api_fcn.value, ec.message(), fp_exception.as_string());
+                boost::throw_exception(convert::numeric_failure<IteratorT>(
+                    // ex.where() - ex.which() - ex.what()
+                    begin, x3::what(*this), ec.message()));
+                first = begin;
+                return false;
+            },
+            [&](std::error_code const& ec, leaf::e_api_function const& api_fcn) {
+                // LEAF - safe_{mu,add}<IntT>
+                std::cerr << fmt::format("LEAF: Error in api function '{}': {}\n", api_fcn.value,
+                                         ec.message());
+                boost::throw_exception(convert::numeric_failure<IteratorT>(
+                    // ex.where() - ex.which() - ex.what()
+                    begin, x3::what(*this), ec.message()));
+                first = begin;
+                return false;
+            },
+            [&](std::error_code const& ec) {
+                // LEAF
+                std::cerr << fmt::format("LEAF: Error: '{}'\n", ec.message());
+                boost::throw_exception(convert::numeric_failure<IteratorT>(
+                    // ex.where() - ex.which() - ex.what()
+                    begin, x3::what(*this), ec.message()));
+                first = begin;
+                return false;
+            },
+            [&](std::exception const& e) {
+                std::cerr << fmt::format("LEAF: Caught exception: '{}'\n", e.what());
+                boost::throw_exception(convert::numeric_failure<IteratorT>(
+                    // ex.where() - ex.which() - ex.what()
+                    begin, x3::what(*this), e.what()));
+                first = begin;
+                return false;
+            });
     }
 
 private:
@@ -93,9 +147,21 @@ private:
         { "x", 16 },
     }, "base id");
     // clang-format on
-
 };
 
 static bit_string_literal_parser const bit_string_literal = {};
 
 }  // namespace parser
+
+namespace boost::spirit::x3 {
+
+template <>
+struct get_info<::parser::bit_string_literal_parser> {
+    using result_type = std::string;
+    std::string operator()([[maybe_unused]] ::parser::bit_string_literal_parser const&) const
+    {
+        return "bit string literal";
+    }
+};
+
+}  // namespace boost::spirit::x3

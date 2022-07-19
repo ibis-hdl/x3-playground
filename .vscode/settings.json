@@ -91,6 +91,7 @@
         "semaphore": "cpp",
         "cfenv": "cpp",
         "cinttypes": "cpp",
-        "*.ipp": "cpp"
+        "*.ipp": "cpp",
+        "regex": "cpp"
     }
 }
