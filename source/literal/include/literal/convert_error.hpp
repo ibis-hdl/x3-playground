@@ -16,17 +16,24 @@ namespace convert {
 namespace x3 = boost::spirit::x3;
 namespace leaf = boost::leaf;
 
-template <typename Iterator>
-struct numeric_failure : x3::expectation_failure<Iterator> {
+template <typename IteratorT>
+struct numeric_failure : x3::expectation_failure<IteratorT>
+{
 public:
-    numeric_failure(leaf::e_position_iterator<Iterator> const& where, std::string const& which,
-                    const std::string& what_arg)
-        : x3::expectation_failure<Iterator>(where.where, which)
-        , what_{ what_arg }
+    numeric_failure() = delete;
+    numeric_failure(numeric_failure const&) = default;
+    numeric_failure(numeric_failure&&) = default;
+    ~numeric_failure() = default;
+
+    numeric_failure& operator=(numeric_failure const&) = delete;
+    numeric_failure& operator=(numeric_failure&&) = default;
+
+public:
+    numeric_failure(IteratorT where, std::string const& which, std::string what_str)
+        : x3::expectation_failure<IteratorT>(where, which)
+        , what_{ what_str }
     {
     }
-
-    ~numeric_failure() {}
 
     virtual const char* what() const noexcept override { return what_.c_str(); }
 

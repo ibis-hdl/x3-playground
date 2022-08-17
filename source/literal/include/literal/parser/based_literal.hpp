@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
+#pragma once
+
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
 #include <literal/parser/error_handler.hpp>

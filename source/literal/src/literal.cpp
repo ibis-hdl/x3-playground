@@ -112,7 +112,7 @@ int main()
     std::string const input = R"(
     // bit string literal
     X := b"1000_0001";
-    X := x"AFFE_Cafe";
+    X := x"AFFE_Caffe";
     X := O"777";
     //X := X""; // FixMe: empty also allowed
     // decimal literal
@@ -169,10 +169,10 @@ int main()
         }
     }
     catch (std::exception const& e) {
-        std::cerr << fmt::format("caught {}\n", e.what());
+        std::cerr << fmt::format("caught '{}'\n", e.what());
     }
     catch (...) {
-        std::cerr << "caught unexpected exception\n";
+        std::cerr << "caught 'Unexpected exception'\n";
     }
 }
 

@@ -3,6 +3,8 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
+#pragma once
+
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
 #include <literal/parser/error_handler.hpp>
@@ -82,59 +84,68 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
             return false;
         }
 
+        auto load = leaf::on_error([&]{ // lazy for call of x3::what()
+            return leaf::e_convert_parser_context{x3::what(*this), first, begin}; });
+
         return leaf::try_catch(
             [&] {
                 attribute.value =
                     convert::bit_string_literal<attribute_type::value_type>(attribute);
                 return true;
             },
-            [&](std::error_code const& ec, leaf::e_api_function const& api_fcn,
-                leaf::e_position_iterator<IteratorT> const& e_iter) {
-                // LEAF - from_chars()
-                std::cerr << fmt::format("LEAF: Error in api function '{}': {}\n", api_fcn.value,
-                                         ec.message());
-                boost::throw_exception(convert::numeric_failure<IteratorT>(
-                    // ex.where() - ex.which() - ex.what()
-                    e_iter, x3::what(*this), ec.message()));
-                first = begin;
+            [](std::error_code const& ec, leaf::e_convert_parser_context<IteratorT>& parser_ctx,
+                leaf::e_api_function const* api_fcn, leaf::e_fp_exception const* fp_exception,
+                leaf::e_position_iterator<IteratorT> const* e_iter) {
+
+                std::cerr << "LEAF handler #1 called.\n";
+                // LEAF - e.g. safe_{mu,add}<IntT>
+                if(api_fcn) {
+                    std::cerr << fmt::format("LEAF: Error in api function '{}': {}\n", api_fcn->value, ec.message());
+                }
+                if(fp_exception) {
+                    std::cerr << fmt::format("LEAF: Error during FP operation '{}': {}\n", fp_exception->as_string(), ec.message());
+                }
+                parser_ctx.unroll();
+                // The e_iter is set by from_chars API and points to erroneous position, otherwise take the iterator
+                // position from global VHDL parser.
+                IteratorT iter = (e_iter) ? e_iter->value : parser_ctx.iter();
+
+                leaf::throw_exception( // --
+                    convert::numeric_failure<IteratorT>(
+                        // notation x3::expectation_failure(where, which, what)
+                        iter, parser_ctx.which(), ec.message()
+                ));
                 return false;
             },
-            [&](std::error_code const& ec, leaf::e_api_function const& api_fcn,
-                leaf::e_fp_exception fp_exception) {
-                // LEAF - safe_{mul,add}<RealT>
-                std::cerr << fmt::format("LEAF: Error in api function '{}': {} ({})\n",
-                                         api_fcn.value, ec.message(), fp_exception.as_string());
-                boost::throw_exception(convert::numeric_failure<IteratorT>(
-                    // ex.where() - ex.which() - ex.what()
-                    begin, x3::what(*this), ec.message()));
-                first = begin;
+            [](std::exception const& e, leaf::e_convert_parser_context<IteratorT>& parser_ctx) {
+                std::cerr << "LEAF handler #2 called.\n";
+                parser_ctx.unroll();
+                leaf::throw_exception( // --
+                    convert::numeric_failure<IteratorT>(
+                        // notation x3::expectation_failure(where, which, what)
+                        parser_ctx.iter(), parser_ctx.which(), e.what()
+                ));
                 return false;
             },
-            [&](std::error_code const& ec, leaf::e_api_function const& api_fcn) {
-                // LEAF - safe_{mu,add}<IntT>
-                std::cerr << fmt::format("LEAF: Error in api function '{}': {}\n", api_fcn.value,
-                                         ec.message());
-                boost::throw_exception(convert::numeric_failure<IteratorT>(
-                    // ex.where() - ex.which() - ex.what()
-                    begin, x3::what(*this), ec.message()));
-                first = begin;
+            // FIXME gets never called
+            [](leaf::error_info const& unmatched, leaf::e_convert_parser_context<IteratorT>& parser_ctx)
+            {
+                std::cerr << "LEAF: Unknown failure detected:\n" << unmatched;
+                std::cerr << "\n  try to recover\n";
+                parser_ctx.unroll();
+                leaf::throw_exception( // --
+                    convert::numeric_failure<IteratorT>(
+                        // notation x3::expectation_failure(where, which, what)
+                        parser_ctx.iter(), parser_ctx.which(), unmatched.exception()->what()
+                ));
                 return false;
-            },
-            [&](std::error_code const& ec) {
-                // LEAF
-                std::cerr << fmt::format("LEAF: Error: '{}'\n", ec.message());
-                boost::throw_exception(convert::numeric_failure<IteratorT>(
-                    // ex.where() - ex.which() - ex.what()
-                    begin, x3::what(*this), ec.message()));
-                first = begin;
-                return false;
-            },
-            [&](std::exception const& e) {
-                std::cerr << fmt::format("LEAF: Caught exception: '{}'\n", e.what());
-                boost::throw_exception(convert::numeric_failure<IteratorT>(
-                    // ex.where() - ex.which() - ex.what()
-                    begin, x3::what(*this), e.what()));
-                first = begin;
+            },            
+            [](leaf::error_info const& unmatched)
+            {
+                std::cerr << "LEAF: Unknown failure detected:\n" << unmatched;
+                // TODO Here is no parser context available, so recovery and useful error handling isn't 
+                // possible anymore. This is considered as serious bug.
+                abort();
                 return false;
             });
     }

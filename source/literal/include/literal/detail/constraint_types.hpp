@@ -23,7 +23,7 @@ template <class IntT>
 concept UnsignedIntergralType = std::is_unsigned_v<IntT> && IntergralType<IntT>;
 
 template <class IntT>
-concept signedIntergralType = std::is_signed_v<IntT> && IntergralType<IntT>;
+concept SignedIntergralType = std::is_signed_v<IntT> && IntergralType<IntT>;
 
 template <class RealT>
 concept RealType = std::is_floating_point_v<RealT>;
