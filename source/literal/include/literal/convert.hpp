@@ -41,7 +41,12 @@ namespace detail {
 
 auto const underline_predicate = [](char chr) { return chr != '_'; };
 
-// prune the literal and copy result to string
+/// 
+/// Prune the literal from underline '_' and copy result to string
+/// 
+/// @param literal 
+/// @return std::string 
+///
 static inline std::string remove_underline(auto literal)
 {
     namespace views = ranges::views;
@@ -49,7 +54,15 @@ static inline std::string remove_underline(auto literal)
     return ranges::to<std::string>(literal | views::filter(underline_predicate));
 }
 
-// char-to-decimal for character range
+/// 
+/// char-to-decimal for character range with lookup O(1)
+/// 
+/// @param chr 
+/// @return std::uint32_t 
+///
+/// maps '0-9', 'A-Z' and 'a-z' to their corresponding numeric value and maps all 
+/// other characters to 0x7F (7-Bit ASCII 127d 'delete').
+///
 std::uint32_t chr2dec(char chr);
 
 template <IntergralType TargetT>
@@ -63,10 +76,13 @@ static inline auto as_integral_integer(unsigned base, std::string_view literal)
     return from_chars<TargetT>(base, clean_literal);
 }
 
+#if !defined(__APPLE__)
 // Check that floating-point exceptions are supported and floating-point operations
 // use the variable errno to report errors.
 // @see [MATH_ERRNO, MATH_ERREXCEPT, math_errhandling](
 //  https://en.cppreference.com/w/cpp/numeric/math/math_errhandling)
+// @note This check is disabled on macOS since `math_errhandling` expands to non-constexpr
+// function `__math_errhandling` and therefore cannot be used in a constant expression.
 static bool constexpr has_iec60559_math = []() {
     return static_cast<bool>(math_errhandling & MATH_ERREXCEPT)  //
            && static_cast<bool>(math_errhandling & MATH_ERRNO);
@@ -74,6 +90,7 @@ static bool constexpr has_iec60559_math = []() {
 
 static_assert(has_iec60559_math,
               "Target must support floating-point exceptions and errno to report errors");
+#endif // !__APPLE__
 
 }  // namespace detail
 

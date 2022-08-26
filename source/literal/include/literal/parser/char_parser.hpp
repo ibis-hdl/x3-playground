@@ -9,6 +9,8 @@
 
 #include <range/v3/view/join.hpp>
 #include <range/v3/range/conversion.hpp>
+#include <range/v3/algorithm/copy.hpp>
+#include <range/v3/algorithm/copy_n.hpp>
 
 #include <literal/detail/constraint_types.hpp>
 
@@ -109,8 +111,8 @@ struct String {
 
     constexpr String() = default;
 
-    constexpr String(char const (&pp)[n]) noexcept { std::ranges::copy(pp, std::begin(p)); };
-    constexpr String(char const* pp) noexcept { std::ranges::copy_n(pp, n, std::begin(p)); };
+    constexpr String(char const (&pp)[n]) noexcept { ranges::copy(pp, std::begin(p)); };
+    constexpr String(char const* pp) noexcept { ranges::copy_n(pp, n, std::begin(p)); };
     constexpr operator std::string_view() const noexcept { return { std::data(p), std::size(p) }; }
 };
 
@@ -118,7 +120,7 @@ template <size_t n_lhs, size_t n_rhs>
 constexpr String<n_lhs + n_rhs> operator+(String<n_lhs> lhs, String<n_rhs> rhs)
 {
     String<n_lhs + n_rhs> ret(std::data(lhs.p));
-    std::ranges::copy_n(std::begin(rhs.p), n_rhs, std::begin(ret.p) + n_lhs);
+    ranges::copy_n(std::begin(rhs.p), n_rhs, std::begin(ret.p) + n_lhs);
     return ret;
 }
 
