@@ -163,3 +163,76 @@ jobs:
       run: |
         conan remove -f "*" --builds
         conan remove -f "*" --src
+
+  # ---------------------------------------------------------------------------
+  macOS:
+    name: macOS ${{ matrix.config.compiler }}
+    runs-on: ${{ matrix.image }}
+    #if: false # always skip job
+    strategy:
+      fail-fast: false
+      matrix:
+        image:    [ macos-12 ]
+        config:
+        - {
+            compiler: "clang"
+          }
+
+    steps:
+
+    - name: Install basic dependencies
+      run: |
+        brew update
+        brew install cmake ninja sccache
+        # [LLVM will be updated to version 14 on July, 11 #5835](
+        #  https://github.com/actions/runner-images/issues/5835)
+        # set the path to homebrew's LLVM
+        echo "/opt/homebrew/opt/llvm@14/bin" >> $GITHUB_PATH
+
+    - name: Install conan package manager
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 --disable-pip-version-check --no-cache-dir install wheel conan
+
+    - name: Checkout Repo
+      uses: actions/checkout@v3
+      with:
+        submodules: true
+
+    - name: Setup Github's cache for conan
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-${{ matrix.config.compiler }}-conan-${{ hashFiles('conanfile.txt') }}
+        path: |
+          ~/.conan
+
+    - name: Setup Github's cache for compiler cache
+      uses: actions/cache@v3
+      with:
+        key: ${{ runner.os }}-${{ matrix.config.compiler }}-sccache
+        path: |
+          ~/Library/Caches/Mozilla.sccache
+
+    - name: Build CMake's preset string
+      id: cmake_preset_string
+      uses: ASzc/change-string-case-action@v2
+      with:
+        string: ci-${{ runner.os }}-${{ matrix.config.compiler }}
+
+    - name: Configuration and build
+      run: |
+        cmake -DCMAKE_CXX_COMPILER=$(brew --prefix llvm@14)/bin/clang++ --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+        cmake --build --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+
+    - name: SCCache statistics
+      run: |
+        sccache --show-stats && sccache --stop-server
+
+    - name: Run Unit Test
+      run: |
+        ctest --preset ${{ steps.cmake_preset_string.outputs.lowercase }}
+
+    - name: Clean up conan's build & sources
+      run: |
+        conan remove -f "*" --builds
+        conan remove -f "*" --src
