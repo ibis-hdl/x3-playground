@@ -68,7 +68,7 @@ std::uint32_t chr2dec(char chr);
 template <IntergralType TargetT>
 static inline auto as_integral_integer(unsigned base, std::string_view literal)
 {
-    // in the past, got wrong results if the exponent was empty
+    // FIXME in the past, got wrong results if e.g. the exponent literal was empty
     assert(!literal.empty() && "Attempt to to convert an empty literal");
 
     auto const clean_literal = convert::detail::remove_underline(literal);

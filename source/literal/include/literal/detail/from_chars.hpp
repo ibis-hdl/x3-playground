@@ -75,6 +75,7 @@ public:
 
         TargetT result;
         auto const [ptr, errc] = std_from_chars<TargetT>::call(literal.data(), end, result, base);
+        // even if errc empty, as error is considered ptr != end - delegate this checks
         auto const ec = get_error_code(ptr, end, errc);
 
         if (ec) {
@@ -97,7 +98,7 @@ private:
     // it is allowed, and hence a valid rule for outer parser!
     static std::string_view remove_positive_sign(std::string_view literal)
     {
-        if (literal.size() > 0 && literal[0] == '+') {
+        if (!literal.empty() && literal.front() == '+') {
             literal.remove_prefix(1);
         }
         return literal;

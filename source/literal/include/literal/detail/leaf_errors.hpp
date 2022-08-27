@@ -14,9 +14,7 @@
 #include <type_traits>
 #include <iostream>
 
-// This header exist to avoid collisions and compiler errors between spirit X3 includes
-// and project's one. The namespace is also leaf to be used project wide and since it's
-// tied to boost LEAF error handling respectively extends the error IDs.
+// Common errors tied to boost LEAF error handling respectively extends the error IDs.
 
 namespace boost::leaf {
 
@@ -24,7 +22,8 @@ template <typename IterT>
 struct e_position_iterator {
     IterT const value;  // mimics x3::expectation_failure::where()
     // clang doesn't support parentheses init syntax for aggregate init (C++20 addition)
-    explicit e_position_iterator(IterT iter) : value{ iter }
+    explicit e_position_iterator(IterT iter)
+    : value{ iter }
     {}
 };
 
