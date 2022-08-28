@@ -9,11 +9,14 @@
 #include <string_view>
 #include <string>
 
-#include <fmt/format.h>
-
 #include <range/v3/all.hpp>
 
 namespace boost::leaf {
+
+std::ostream& operator<<(std::ostream& os, e_fp_exception e_fp) {
+    os << e_fp.as_string();
+    return os;
+}
 
 std::string e_fp_exception::as_string() const
 {

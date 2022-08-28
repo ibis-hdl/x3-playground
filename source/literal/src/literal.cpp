@@ -105,6 +105,7 @@ struct grammar_class : my_x3_error_handler<grammar_class> {};
 // clang-format on
 
 }  // namespace
+
 int main()
 {
     using namespace ast;
@@ -112,7 +113,7 @@ int main()
     std::string const input = R"(
     // bit string literal
     X := b"1000_0001";
-    X := x"AFFE_Caffe";
+    X := x"AFFE_Cafe";
     X := O"777";
     //X := X""; // FixMe: empty also allowed
     // decimal literal
@@ -135,8 +136,10 @@ int main()
     X := 2#1110_0000#;  // 224
     X := 16#F.FF#E+2;   // 4095.0
     X := 2#1.1111_1111_111#E11; // 4095.0
+    // failure test: bit string literal
+    //X := x"AFFE_Cafee"; // 'from_chars': Numerical result out of range
 /*
-    // failure test
+    // failure test 
     X := 2##;          // -> based literal real or integer type
     X := 3#011#;       // base not supported
     X := 2#120#1;      // wrong char set for binary

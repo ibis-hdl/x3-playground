@@ -29,19 +29,19 @@ struct e_position_iterator {
 
 
 template<typename IterT>
-struct e_convert_parser_context
+struct e_x3_parser_context
 {
 public:
-    e_convert_parser_context() = delete;
-    ~e_convert_parser_context() = default;
+    e_x3_parser_context() = delete;
+    ~e_x3_parser_context() = default;
 
-    e_convert_parser_context(e_convert_parser_context const&) = delete;
-    e_convert_parser_context& operator=(e_convert_parser_context const&) = delete;
+    e_x3_parser_context(e_x3_parser_context const&) = delete;
+    e_x3_parser_context& operator=(e_x3_parser_context const&) = delete;
 
-    e_convert_parser_context(e_convert_parser_context&&) = default;
-    e_convert_parser_context& operator=(e_convert_parser_context&&) = default;
+    e_x3_parser_context(e_x3_parser_context&&) = default;
+    e_x3_parser_context& operator=(e_x3_parser_context&&) = default;
 
-    e_convert_parser_context(std::string what_, IterT first_, IterT begin_)
+    e_x3_parser_context(std::string what_, IterT first_, IterT begin_)
     : x3_what{ what_}
     , first{ first_}
     , begin{begin_}
@@ -65,6 +65,7 @@ private:
 
 struct e_fp_exception {
     int const raised;
+    friend std::ostream& operator<<(std::ostream& os, e_fp_exception e_fp);
     std::string as_string() const;
 };
 

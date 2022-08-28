@@ -84,16 +84,16 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
             return false;
         }
 
-        auto load = leaf::on_error([&]{ // lazy for call of x3::what()
-            return leaf::e_convert_parser_context{x3::what(*this), first, begin}; });
-
         return leaf::try_catch(
             [&] {
+                auto load = leaf::on_error([&]{ // lazy for call of x3::what()
+                    return leaf::e_x3_parser_context{x3::what(*this), first, begin}; });
+
                 attribute.value =
                     convert::bit_string_literal<attribute_type::value_type>(attribute);
                 return true;
             },
-            [](std::error_code const& ec, leaf::e_convert_parser_context<IteratorT>& parser_ctx,
+            [](std::error_code const& ec, leaf::e_x3_parser_context<IteratorT>& parser_ctx,
                 leaf::e_api_function const* api_fcn, leaf::e_fp_exception const* fp_exception,
                 leaf::e_position_iterator<IteratorT> const* e_iter) {
 
@@ -117,7 +117,7 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
                 ));
                 return false;
             },
-            [](std::exception const& e, leaf::e_convert_parser_context<IteratorT>& parser_ctx) {
+            [](std::exception const& e, leaf::e_x3_parser_context<IteratorT>& parser_ctx) {
                 std::cerr << "LEAF handler #2 called.\n";
                 parser_ctx.unroll();
                 leaf::throw_exception( // --
@@ -128,7 +128,7 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
                 return false;
             },
             // FIXME gets never called
-            [](leaf::error_info const& unmatched, leaf::e_convert_parser_context<IteratorT>& parser_ctx)
+            [](leaf::error_info const& unmatched, leaf::e_x3_parser_context<IteratorT>& parser_ctx)
             {
                 std::cerr << "LEAF: Unknown failure detected:\n" << unmatched;
                 std::cerr << "\n  try to recover\n";
