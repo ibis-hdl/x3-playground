@@ -61,9 +61,10 @@
 	"remoteUser": "vscode",
 
 	"features": {
-		"git": "latest",
+		// we don't depend on latest features
+		"git": "os-provided",
 		"github-cli": "latest",
-		"fish": "latest",
-		"python": "latest"
+		"fish": "os-provided",
+		"python": "os-provided"
 	}
 }

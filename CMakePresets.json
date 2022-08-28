@@ -167,6 +167,16 @@
             ]
         },
         {
+            "name": "linux-clang-libc++-release",
+            "displayName": "Linux Clang/libc++: Release",
+            "description": "Linux/WSL2 LLVM Clang with libc++ compiler: Release",
+            "inherits": [
+                "linux-clang-default",
+                "use-stdlib-libc++",
+                "release-build"
+            ]
+        },
+        {
             "name": "linux-gcc-default",
             "displayName": "Linux GCC",
             "hidden" : true,
@@ -446,6 +456,11 @@
             "configurePreset": "linux-clang-release"
         },
         {
+            "name": "linux-clang-libc++-release",
+            "displayName": "libc++ Release",
+            "configurePreset": "linux-clang-libc++-release"
+        },
+        {
             "name": "linux-gcc-debug",
             "displayName": "Debug",
             "configurePreset": "linux-gcc-debug"
@@ -537,6 +552,14 @@
             "name": "linux-clang-release",
             "displayName": "Test-All",
             "configurePreset": "linux-clang-release",
+            "inherits": [
+                "test-default"
+            ]
+        },
+        {
+            "name": "linux-clang-libc++-release",
+            "displayName": "Test-All",
+            "configurePreset": "linux-clang-libc++-release",
             "inherits": [
                 "test-default"
             ]
