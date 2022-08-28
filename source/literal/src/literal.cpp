@@ -137,7 +137,7 @@ int main()
     X := 16#F.FF#E+2;   // 4095.0
     X := 2#1.1111_1111_111#E11; // 4095.0
     // failure test: bit string literal
-    //X := x"AFFE_Cafee"; // 'from_chars': Numerical result out of range
+    X := x"AFFE_Cafee"; // 'from_chars': Numerical result out of range
 /*
     // failure test 
     X := 2##;          // -> based literal real or integer type

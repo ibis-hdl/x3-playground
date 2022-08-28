@@ -5,6 +5,7 @@
 
 #pragma once
 
+#include <literal/config.hpp>
 #include <literal/detail/constraint_types.hpp>
 #include <literal/convert_error.hpp>
 
@@ -38,6 +39,10 @@ struct std_from_chars<IntT> {
     }
 };
 
+// Users of libc++ (like on macOS using Clang) doesn't have an implementation of `from_chars()` for
+// float, double, ... real types.
+#if !defined(CONVERT_FROM_CHARS_USE_STRTOD)
+
 template <RealType RealT>
 struct std_from_chars<RealT> {
     static auto call(const char* const first, const char* const last, RealT& value, unsigned base)
@@ -51,17 +56,14 @@ struct std_from_chars<RealT> {
                 //  https://en.cppreference.com/w/cpp/language/floating_literal)
                 return std::from_chars(first, last, value, std::chars_format::hex);
             default:
-                // Support of other bases for floating-point literal as `std::from_chars()`
-                // does is misleading.
-                assert(
-                    false &&
-                    "Only Base 10 and 16 (without exponent) is supported for floating point types");
+                return std::from_chars_result{ first, std::errc::not_supported };
         }
-        assert(false && "Wrong code path");
         // never goes here, but makes compiler quiet
-        return std::from_chars_result{ first, std::errc::invalid_argument };
+        return std::from_chars_result{ first, std::errc::not_supported };
     }
 };
+
+#endif
 
 template <typename TargetT>
 class from_chars_api {
@@ -109,7 +111,11 @@ private:
                                           std::errc errc)
     {
         if (ptr != end) {
-            // something of input is wrong, outer parser fails
+            // maybe input is wrong, outer parser fails ...; nevertheless don't overwrite
+            // given error code
+            if(errc != std::errc{}) {
+                return std::make_error_code(errc);
+            }
             return std::make_error_code(std::errc::invalid_argument);
         }
         if (errc != std::errc{}) {
@@ -127,3 +133,7 @@ static from_chars_api<TargetT> const from_chars = {};
 }  // namespace detail
 
 }  // namespace convert
+
+#if defined(CONVERT_FROM_CHARS_USE_STRTOD)
+#include <literal/detail/from_chars_real.hpp>
+#endif

@@ -111,6 +111,8 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
                 IteratorT iter = (e_iter) ? e_iter->value : parser_ctx.iter();
 
                 leaf::throw_exception( // --
+                    // FixMe Using libc++ 14 this call results into ASAN error 'alloc_dealloc_mismatch' inside
+                    // x3::expectation_failure constructor
                     convert::numeric_failure<IteratorT>(
                         // notation x3::expectation_failure(where, which, what)
                         iter, parser_ctx.which(), ec.message()

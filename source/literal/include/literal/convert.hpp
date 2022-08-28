@@ -166,7 +166,7 @@ struct convert_real {
         if (real.base == 16U) {
             // std::from_chars() directly supports base 16 floating-point/real types; but the
             // exponent support is of base 2, so use it without and multiply with the exponent
-            // of base 16.
+            // of base 16 later on (if necessary).
             // concept [coliru](https://coliru.stacked-crooked.com/a/596e7723bb7dc531)
             auto const with_exponent = false;
             auto const real_string = as_real_string(real, with_exponent);
@@ -186,6 +186,8 @@ struct convert_real {
 
             return result;
         }
+        
+        // other bases follow, which aren't directly supported by `from_chars()`
 
         // LEAF
         auto const int_result =

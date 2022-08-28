@@ -29,13 +29,13 @@ public:
     numeric_failure& operator=(numeric_failure&&) = default;
 
 public:
-    numeric_failure(IteratorT where, std::string const& which, std::string what_str)
+    numeric_failure(IteratorT where, std::string const& which, std::string const& what_str)
         : x3::expectation_failure<IteratorT>(where, which)
         , what_{ what_str }
     {
     }
 
-    virtual const char* what() const noexcept override { return what_.c_str(); }
+    const char* what() const noexcept override { return what_.c_str(); }
 
 private:
     std::string const what_;
