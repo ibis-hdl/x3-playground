@@ -13,10 +13,14 @@
 #include <string_view>
 #include <type_traits>
 #include <iostream>
+#include <functional>
+#include <concepts>
 
 // Common errors tied to boost LEAF error handling respectively extends the error IDs.
 
 namespace boost::leaf {
+
+namespace x3 = boost::spirit::x3;
 
 template <typename IterT>
 struct e_position_iterator {
@@ -28,6 +32,18 @@ struct e_position_iterator {
 };
 
 
+template<typename D>
+concept X3ParserT = std::derived_from<D, x3::parser<D>>;
+
+///
+/// The call of x3::what() can be made lazy during construction time of
+/// the class, see [coliru](https://coliru.stacked-crooked.com/a/554f65ab2bd8e7b7).
+/// This simplifies the LEAF on-error payload:
+/// @code{.cpp}
+/// auto load = leaf::on_error([&]{ // lazy for call of x3::what()
+///     return leaf::e_x3_parser_context{x3::what(*this), first, first_bak}; });
+/// @endcode
+///
 template<typename IterT>
 struct e_x3_parser_context
 {
@@ -41,25 +57,58 @@ public:
     e_x3_parser_context(e_x3_parser_context&&) = default;
     e_x3_parser_context& operator=(e_x3_parser_context&&) = default;
 
-    e_x3_parser_context(std::string what_, IterT first_, IterT begin_)
-    : x3_what{ what_}
+    ///
+    /// Construct the parser error context for error handling using LEAF.
+    ///
+    /// @param x3_what The Spirit X3 parser name which fails, by `x3::which()`
+    /// @param first_ Iterator position pointing to end of parsers expression.
+    /// @param first_bak_ Iterator backup to be restored if intended.
+    ///
+    e_x3_parser_context(std::string const& x3_what, IterT first_, IterT first_bak_)
+    : x3_what_str{ x3_what }
     , first{ first_}
-    , begin{begin_}
+    , first_bak{ first_bak_ }
+    {}
+
+    ///
+    /// Construct the parser error context for error handling using LEAF, calls 
+    /// `x3::which()` lazy.
+    ///
+    /// @tparam ParserT Spirit X3 parser type.
+    /// @param parser The Spirit X3 parser which fails.
+    /// @param first_ Iterator position pointing to end of parsers expression.
+    /// @param first_bak_ Iterator backup to be restored if intended.
+    ///
+    template<X3ParserT ParserT>
+    e_x3_parser_context(ParserT const& parser, IterT first_, IterT first_bak_)
+    : x3_what_lazy_fn{ [this, &parser](){ x3_what_str = x3::what(parser); } }
+    , first{ first_}
+    , first_bak{ first_bak_ }
     {}
 
 public:
+    /// Restore the iterator to the position before the error occurred.
     void unroll() {
-        std::cerr << "restore parser iterator position\n";
-        first = begin;
+        std::cerr << "Restore parser iterator position\n";
+        first = first_bak;
     }
 
+    /// The iterator pointing to the erroneous position.
     IterT iter() const { return first; }
-    std::string which() const { return x3_what; }
+
+    /// The name of the parser which fails, @see x3::what()
+    std::string which() const {
+        if(x3_what_lazy_fn) {
+            x3_what_lazy_fn();
+        }
+        return x3_what_str;
+    }
 
 private:
-    std::string const x3_what;
+    std::function<void()> const x3_what_lazy_fn;
+    std::string mutable x3_what_str;
     IterT first;
-    IterT const begin;
+    IterT const first_bak;
 };
 
 

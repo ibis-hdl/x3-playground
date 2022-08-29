@@ -16,6 +16,11 @@ namespace convert {
 namespace x3 = boost::spirit::x3;
 namespace leaf = boost::leaf;
 
+///
+/// Exception class for convert numeric errors.
+///
+/// @tparam IteratorT Parser iterator type
+///
 template <typename IteratorT>
 struct numeric_failure : x3::expectation_failure<IteratorT>
 {

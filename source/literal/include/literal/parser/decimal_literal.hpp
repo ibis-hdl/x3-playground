@@ -81,26 +81,15 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
 
         attribute.base = 10U;  // decimal literal has always base = 10
 
-        auto const calc_ok = calculate_value(attribute);
-
-        if (!calc_ok) {
-            first = begin;
-            return false;
-        }
-
-        return true;
-    }
-
-private:
-    static bool calculate_value(attribute_type& attribute)
-    {
         return leaf::try_catch(
             [&] {
+                auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
+
                 // LEAF - from_chars() or power() may fail
                 attribute.value = convert::integer<attribute_type::value_type>(attribute);
                 return true;
             },
-            convert::leaf_error_handlers);
+            convert::leaf_error_handlers<IteratorT>);
     }
 };
 
@@ -132,26 +121,15 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
 
         attribute.base = 10U;  // decimal literal has always base = 10
 
-        auto const calc_ok = calculate_value(attribute);
-
-        if (!calc_ok) {
-            first = begin;
-            return false;
-        }
-
-        return true;
-    }
-
-private:
-    static bool calculate_value(attribute_type& attribute)
-    {
         return leaf::try_catch(
             [&] {
+                auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
+
                 // LEAF - from_chars() or power() may fail
                 attribute.value = convert::real<attribute_type::value_type>(attribute);
                 return true;
             },
-            convert::leaf_error_handlers);
+            convert::leaf_error_handlers<IteratorT>);
     }
 };
 

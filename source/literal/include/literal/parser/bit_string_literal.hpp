@@ -8,20 +8,11 @@
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
 #include <literal/parser/error_handler.hpp>
-#include <literal/parser/util/x3_lazy.hpp>
-#include <literal/convert_error.hpp>
-#include <literal/detail/leaf_error_handler.hpp>
 #include <literal/convert.hpp>
+#include <literal/detail/leaf_error_handler.hpp>
 
 #include <boost/spirit/home/x3.hpp>
-
-#include <boost/leaf.hpp>
-
-#include <range/v3/view/filter.hpp>
-#include <range/v3/range/conversion.hpp>
-#include <charconv>
-
-#include <fmt/format.h>
+#include <literal/parser/util/x3_lazy.hpp>
 
 #include <iostream>
 
@@ -86,70 +77,17 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
 
         return leaf::try_catch(
             [&] {
-                auto load = leaf::on_error([&]{ // lazy for call of x3::what()
-                    return leaf::e_x3_parser_context{x3::what(*this), first, begin}; });
+#if 1                
+                auto load = leaf::on_error(leaf::e_x3_parser_context{x3::what(*this), first, begin});
+#else
+                auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin}); // x3:what() lazy
+#endif
 
                 attribute.value =
                     convert::bit_string_literal<attribute_type::value_type>(attribute);
                 return true;
             },
-            [](std::error_code const& ec, leaf::e_x3_parser_context<IteratorT>& parser_ctx,
-                leaf::e_api_function const* api_fcn, leaf::e_fp_exception const* fp_exception,
-                leaf::e_position_iterator<IteratorT> const* e_iter) {
-
-                std::cerr << "LEAF handler #1 called.\n";
-                // LEAF - e.g. safe_{mu,add}<IntT>
-                if(api_fcn) {
-                    std::cerr << fmt::format("LEAF: Error in api function '{}': {}\n", api_fcn->value, ec.message());
-                }
-                if(fp_exception) {
-                    std::cerr << fmt::format("LEAF: Error during FP operation '{}': {}\n", fp_exception->as_string(), ec.message());
-                }
-                parser_ctx.unroll();
-                // The e_iter is set by from_chars API and points to erroneous position, otherwise take the iterator
-                // position from global VHDL parser.
-                IteratorT iter = (e_iter) ? e_iter->value : parser_ctx.iter();
-
-                leaf::throw_exception( // --
-                    // FixMe Using libc++ 14 this call results into ASAN error 'alloc_dealloc_mismatch' inside
-                    // x3::expectation_failure constructor
-                    convert::numeric_failure<IteratorT>(
-                        // notation x3::expectation_failure(where, which, what)
-                        iter, parser_ctx.which(), ec.message()
-                ));
-                return false;
-            },
-            [](std::exception const& e, leaf::e_x3_parser_context<IteratorT>& parser_ctx) {
-                std::cerr << "LEAF handler #2 called.\n";
-                parser_ctx.unroll();
-                leaf::throw_exception( // --
-                    convert::numeric_failure<IteratorT>(
-                        // notation x3::expectation_failure(where, which, what)
-                        parser_ctx.iter(), parser_ctx.which(), e.what()
-                ));
-                return false;
-            },
-            // FIXME gets never called
-            [](leaf::error_info const& unmatched, leaf::e_x3_parser_context<IteratorT>& parser_ctx)
-            {
-                std::cerr << "LEAF: Unknown failure detected:\n" << unmatched;
-                std::cerr << "\n  try to recover\n";
-                parser_ctx.unroll();
-                leaf::throw_exception( // --
-                    convert::numeric_failure<IteratorT>(
-                        // notation x3::expectation_failure(where, which, what)
-                        parser_ctx.iter(), parser_ctx.which(), unmatched.exception()->what()
-                ));
-                return false;
-            },            
-            [](leaf::error_info const& unmatched)
-            {
-                std::cerr << "LEAF: Unknown failure detected:\n" << unmatched;
-                // TODO Here is no parser context available, so recovery and useful error handling isn't 
-                // possible anymore. This is considered as serious bug.
-                abort();
-                return false;
-            });
+            convert::leaf_error_handlers<IteratorT>);
     }
 
 private:

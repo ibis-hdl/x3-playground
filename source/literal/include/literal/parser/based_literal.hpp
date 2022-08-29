@@ -53,32 +53,12 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
             return false;
         }
 
-        auto const calc_ok = calculate_value(base_literal_str, ctx);
-
-        if (!calc_ok) {
-            first = begin;
-            return false;
-        }
-
-        return true;
-    }
-
-private:
-    static bool supported_base(unsigned base)
-    {
-        if (base == 2U || base == 8U || base == 10U || base == 16U) {
-            return true;
-        }
-        return false;
-    }
-
-    template <typename ContextT>
-    static bool calculate_value(std::string_view base_literal_str, ContextT const& ctx)
-    {
         return leaf::try_catch(
             [&] {
                 // base specifier is always decimal
-                static auto constexpr base10 = 10U;
+                static constexpr auto const base10 = 10U;
+
+                auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
 
                 // LEAF - from_chars() may fail
                 auto const base_result =
@@ -88,7 +68,13 @@ private:
 
                 return true;
             },
-            convert::leaf_error_handlers);
+            convert::leaf_error_handlers<IteratorT>);
+    }
+
+private:
+    static bool supported_base(unsigned base)
+    {
+        return base == 2U || base == 8U || base == 10U || base == 16U;
     }
 };
 
@@ -120,26 +106,15 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
             return false;
         }
 
-        auto const calc_ok = calculate_value(attribute);
-
-        if (!calc_ok) {
-            first = begin;
-            return false;
-        }
-
-        return true;
-    }
-
-private:
-    static bool calculate_value(attribute_type& attribute)
-    {
         return leaf::try_catch(
             [&] {
+                auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
+
                 // LEAF - from_chars() or power() may fail
                 attribute.value = convert::integer<attribute_type::value_type>(attribute);
                 return true;
             },
-            convert::leaf_error_handlers);
+            convert::leaf_error_handlers<IteratorT>);
     }
 };
 
@@ -170,26 +145,15 @@ struct based_real_parser : x3::parser<based_real_parser> {
             return false;
         }
 
-        auto const calc_ok = calculate_value(attribute);
-
-        if (!calc_ok) {
-            first = begin;
-            return false;
-        }
-
-        return true;
-    }
-
-private:
-    static bool calculate_value(attribute_type& attribute)
-    {
         return leaf::try_catch(
             [&] {
+                auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
+
                 // LEAF - from_chars() or power() may fail
                 attribute.value = convert::real<attribute_type::value_type>(attribute);
                 return true;
             },
-            convert::leaf_error_handlers);
+            convert::leaf_error_handlers<IteratorT>);
     }
 };
 
