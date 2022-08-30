@@ -71,6 +71,8 @@ public:
     // low level API, call `std::from_chars()`, literal must be pruned from delimiter '_'
     TargetT operator()(unsigned base, std::string_view literal) const
     {
+        LEAF_ERROR_TRACE;
+
         literal = remove_positive_sign(literal);
 
         char const* const end = literal.data() + literal.size();
@@ -81,13 +83,8 @@ public:
         auto const ec = get_error_code(ptr, end, errc);
 
         if (ec) {
-#if 1       
             throw leaf::exception(ec, leaf::e_api_function{ "from_chars" },
                                   leaf::e_position_iterator{ ptr });
-#else
-            leaf::throw_exception(ec, leaf::e_api_function{ "from_chars" },
-                                  leaf::e_position_iterator{ ptr });
-#endif
         }
 
         return result;

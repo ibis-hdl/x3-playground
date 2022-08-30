@@ -60,7 +60,7 @@ private:
 
 template <typename T>
 struct power_fu {
-    static_assert(nostd::always_false<T>, "Muts be of unsigned integer or real type");
+    static_assert(nostd::always_false<T>, "Must be of unsigned integer or real type");
 };
 
 template <typename T>
@@ -70,6 +70,8 @@ template <UnsignedIntergralType IntT>
 struct power_fu<IntT> {
     IntT operator()(unsigned base, unsigned exp_index) const
     {
+        LEAF_ERROR_TRACE;
+        
         auto const max_exp = [&](unsigned base) {
             switch (base) {
                 case 2:

@@ -15,6 +15,7 @@
 #include <iostream>
 #include <functional>
 #include <concepts>
+#include <deque>
 
 // Common errors tied to boost LEAF error handling respectively extends the error IDs.
 
@@ -118,4 +119,23 @@ struct e_fp_exception {
     std::string as_string() const;
 };
 
+///
+/// The error trace is activated only if an error handling scope provides a
+/// handler for e_error_trace.
+/// @see [LEAF](https://github.com/boostorg/leaf/blob/develop/example/error_trace.cpp)
+//
+struct e_error_trace
+{
+    struct record {
+        char const * file;
+        int line;
+    };
+
+    friend std::ostream & operator<<( std::ostream & os, e_error_trace const & trace );
+
+    std::deque<record> value;
+};
+
 }  // namespace boost::leaf
+
+#define LEAF_ERROR_TRACE auto leaf_trace__ = ::boost::leaf::on_error([](::boost::leaf::e_error_trace& trace) { trace.value.emplace_front(::boost::leaf::e_error_trace::record{__FILE__, __LINE__}); } )

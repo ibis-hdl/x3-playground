@@ -28,15 +28,17 @@ static inline auto const leaf_error_handlers = std::make_tuple(
 
     [](std::error_code const& ec, leaf::e_x3_parser_context<IteratorT>& parser_ctx,
         leaf::e_api_function const* api_fcn, leaf::e_fp_exception const* fp_exception,
-        leaf::e_position_iterator<IteratorT> const* e_iter) {
+        leaf::e_position_iterator<IteratorT> const* e_iter, leaf::e_error_trace const* e_trace) {
 
         std::cerr << "LEAF handler #1 called.\n";
-        // LEAF - e.g. safe_{mu,add}<IntT>
+        if(e_trace) {
+            std::cerr << "LEAF exception trace:\n" << *e_trace;
+        }
         if(api_fcn) {
-            std::cerr << fmt::format("LEAF: Error in api function '{}': {}\n", api_fcn->value, ec.message());
+            std::cerr << fmt::format("Error in API function '{}': {}\n", api_fcn->value, ec.message());
         }
         if(fp_exception) {
-            std::cerr << fmt::format("LEAF: Error during FP operation '{}': {}\n", fp_exception->as_string(), ec.message());
+            std::cerr << fmt::format("Error during FP operation '{}': {}\n", fp_exception->as_string(), ec.message());
         }
         parser_ctx.unroll();
         // The e_iter is set by from_chars API and points to erroneous position. If not known take the iterator

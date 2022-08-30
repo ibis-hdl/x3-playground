@@ -84,12 +84,15 @@ template <IntergralType IntT>
 struct safe_mul<IntT> {
     IntT operator()(IntT lhs, IntT rhs) const
     {
+        LEAF_ERROR_TRACE;
+
         auto const result = static_cast<promote_t<IntT>>(lhs) * rhs;
 
         if (result > std::numeric_limits<IntT>::max()) {
             auto const ec = std::make_error_code(std::errc::result_out_of_range);
             throw leaf::exception(ec, leaf::e_api_function{ "safe_mul<IntT>" });
         }
+        
         return static_cast<IntT>(result);
     }
 };
@@ -98,6 +101,8 @@ template <RealType RealT>
 struct safe_mul<RealT> {
     RealT operator()(RealT lhs, RealT rhs) const
     {
+        LEAF_ERROR_TRACE;
+
         std::feclearexcept(FE_ALL_EXCEPT);
 
         auto const result = lhs * rhs;
@@ -119,6 +124,8 @@ template <RealType RealT>
 struct safe_add<RealT> {
     RealT operator()(RealT lhs, RealT rhs) const
     {
+        LEAF_ERROR_TRACE;
+        
         std::feclearexcept(FE_ALL_EXCEPT);
 
         auto const result = lhs + rhs;

@@ -8,8 +8,23 @@
 #include <cfenv>
 #include <string_view>
 #include <string>
+#include <iostream>
 
+#include <fmt/format.h>
+#include <fmt/ostream.h>
 #include <range/v3/all.hpp>
+
+template <> struct fmt::formatter<boost::leaf::e_error_trace::record> {
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.begin();
+    }
+
+    template <typename FormatContext>
+    auto format(boost::leaf::e_error_trace::record const& rec, FormatContext& ctx) const -> decltype(ctx.out()) {
+        fmt::format_to(ctx.out(), "{}({})", rec.file, rec.line);
+        return ctx.out();
+    }
+};
 
 namespace boost::leaf {
 
@@ -25,7 +40,7 @@ std::string e_fp_exception::as_string() const
     namespace views = ranges::views;
 
     // clang-format off
-    static auto const exceptions = {
+    static constexpr auto exceptions = {
         // see https://en.cppreference.com/w/c/numeric/fenv/FE_exceptions
         FE_OVERFLOW, 
         FE_UNDERFLOW, 
@@ -34,7 +49,7 @@ std::string e_fp_exception::as_string() const
         FE_INEXACT 
     };
 
-    static auto constexpr fp_exception_name = [](int raised) {
+    static constexpr auto fp_exception_name = [](int raised) {
         if (raised & FE_OVERFLOW)  { return "overflow"sv; }
         if (raised & FE_UNDERFLOW) { return "underflow"sv; }
         if (raised & FE_INVALID)   { return "invalid"sv; }
@@ -52,6 +67,15 @@ std::string e_fp_exception::as_string() const
     // clang-format on
 
     return str;
+}
+
+
+std::ostream& operator<<(std::ostream& os, e_error_trace const& trace) 
+{
+    for(unsigned i = 1; auto const& rec : trace.value) {
+        fmt::print(os, "  {}: {}\n", i++, rec);
+    }
+    return os;
 }
 
 }  // namespace boost::leaf

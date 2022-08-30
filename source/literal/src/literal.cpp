@@ -154,7 +154,7 @@ int main()
 
     try {
         using error_handler_type = x3::error_handler<decltype(input.begin())>;
-        error_handler_type error_handler(input.begin(), input.end(), std::cerr);
+        error_handler_type error_handler(input.begin(), input.end(), std::cerr, "input");
 
         auto const grammar_ = x3::with<x3::error_handler_tag>(error_handler)[grammar >> x3::eoi];
 

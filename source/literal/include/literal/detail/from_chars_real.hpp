@@ -36,8 +36,8 @@ struct std_from_chars<RealT> {
         switch (base) {
             case 10: {
                     std::errc ec = std::errc::invalid_argument;
-                    std::size_t const len = impl(first, value, ec);
-                    return make_result(first, len, std::chars_format::general, ec);
+                    std::size_t const n_diff = impl(first, value, ec);
+                    return make_result(first, n_diff, ec);
                 }
 
             case 16: {
@@ -46,9 +46,9 @@ struct std_from_chars<RealT> {
                     auto buf = fmt::memory_buffer();
                     auto [out, size] = fmt::format_to_n(std::back_inserter(buf), buf.capacity() - 1, "0x{}", std::string_view(first, last));
                     *out = '\0';
-                    std::size_t len = impl(buf.begin(), value, ec);
-                    len -= 2; // correct for the "0x"
-                    return make_result(first, len, std::chars_format::hex, ec);
+                    std::size_t n_diff = impl(buf.begin(), value, ec);
+                    n_diff -= 2; // correct for the "0x"
+                    return make_result(first, n_diff, ec);
                 }
 
             default:
@@ -68,7 +68,7 @@ private:
 
         int const errno_bak = errno;
         errno = 0;
-        char* endptr;   // no nullptr, see docs!
+        char* endptr;   // no nullptr! see docs
         RealT temp_result;
 
         if constexpr (std::is_same_v<RealT, float>) {
@@ -97,14 +97,11 @@ private:
         return n_ptrdiff;
     }
 
-    static std::from_chars_result make_result(const char* const start, ptrdiff_t n_diff, std::chars_format fmt, std::errc ec) noexcept
+    static std::from_chars_result make_result(const char* const start, ptrdiff_t n_diff, std::errc ec) noexcept
     {
         std::from_chars_result result = { start, ec };
 
         if (n_diff != 0) {
-            if (fmt == std::chars_format::hex) {
-                //n_diff -= 2; // correct for the "0x" inserted
-            }
             result.ptr += n_diff;
         }
 

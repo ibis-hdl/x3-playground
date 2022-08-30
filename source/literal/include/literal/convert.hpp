@@ -254,6 +254,8 @@ private:
     // https://stackoverflow.com/questions/10330002/sum-of-small-double-numbers-c)
     RealT real_fractional(unsigned base, std::string_view fractional_literal) const
     {
+        LEAF_ERROR_TRACE;
+
         // paranoia, but a base of 0 would result into division by zero by the algorithm used
         assert(base > 0);
 

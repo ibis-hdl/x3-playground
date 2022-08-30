@@ -25,6 +25,10 @@ template <typename IteratorT>
 struct numeric_failure : x3::expectation_failure<IteratorT>
 {
 public:
+    /// pointer type used for dynamic cast to gather it's base type
+    using const_pointer_type = numeric_failure const*;
+
+public:
     numeric_failure() = delete;
     numeric_failure(numeric_failure const&) = default;
     numeric_failure(numeric_failure&&) = default;

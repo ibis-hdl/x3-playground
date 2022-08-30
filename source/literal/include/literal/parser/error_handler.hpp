@@ -15,8 +15,9 @@
 #include <boost/type_index.hpp>
 
 #include <fmt/format.h>
-#include <string>
+
 #include <string_view>
+#include <algorithm>
 #include <iostream>
 #include <iomanip>
 
@@ -44,9 +45,9 @@ struct my_x3_error_handler {  // try to recover and continue to parse
         // [coliru](https://coliru.stacked-crooked.com/a/4163d57183f76f93)
         auto const error_message = [](auto const& e) {
 
-            using convert_exception_pointer = ::convert::numeric_failure<It> const*;
+            using pointer_type = typename ::convert::numeric_failure<It>::const_pointer_type;
 
-            if (auto e_ptr = dynamic_cast<convert_exception_pointer>(&e); e_ptr != nullptr) {
+            if (auto e_ptr = dynamic_cast<pointer_type>(&e); e_ptr != nullptr) {
                 return fmt::format(
                     "Error '{}' during numerical conversion while parsing '{}' here:",
                     e_ptr->what(), e_ptr->which());
@@ -67,9 +68,9 @@ struct my_x3_error_handler {  // try to recover and continue to parse
         // expression.
         // FIXME Doesn't work as intended - doesn't recover correctly: failed with expectation
         // error of ';'
-        auto const position = std::string_view(first, last).find_first_of(";");
-        if (position != std::string_view::npos) {
-            std::advance(first, position + 1);  // move iter behind
+        auto const position = std::find_if(first, last, [](char chr){ return chr == ';'; });
+        if (position != last) {
+            first = position + 1;  // move iter behind ';'
             return x3::error_handler_result::accept;
         }
 
