@@ -111,5 +111,6 @@
         "__tuple": "cpp",
         "queue": "cpp",
         "stack": "cpp"
-    }
+    },
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
 }

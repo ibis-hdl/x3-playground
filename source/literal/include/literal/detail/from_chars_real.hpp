@@ -5,15 +5,12 @@
 
 #pragma once
 
-#if !defined(CONVERT_FROM_CHARS_USE_STRTOD)
-#error This is not intended to be used out of libc++
-#endif
-
 #include <literal/detail/constraint_types.hpp>
 
 #include <fmt/format.h>
 
-#include <new>      // bad_alloc
+#include <string_view>
+#include <system_error>
 #include <utility>  // exchange
 #include <cstdlib>  // strtof, strtod, strtold
 #include <cmath>    // isinf
@@ -25,7 +22,7 @@ template <typename T> struct std_from_chars;
 
 ///
 /// At least until libc++ 16 there is no implementation from `from-chars` for real types.
-/// This affects libc++ users as on macOS using Clang. 
+/// This affects libc++ users as on macOS using Clang, or even Clang-13.
 /// This is a quick & dirty solution using `strtod` and a temporary 'fake' buffer to support
 /// hex floats to address this issue.
 ///
@@ -44,7 +41,8 @@ struct std_from_chars<RealT> {
                     std::errc ec = std::errc::invalid_argument;
                     // create a fake buffer for use with `strtod`and friends for hex floats
                     auto buf = fmt::memory_buffer();
-                    auto [out, size] = fmt::format_to_n(std::back_inserter(buf), buf.capacity() - 1, "0x{}", std::string_view(first, last));
+                    auto [out, size] = fmt::format_to_n(std::back_inserter(buf), buf.capacity() - 1,
+                                                        "0x{}", std::string_view(first, last - first)); // C++17!
                     *out = '\0';
                     std::size_t n_diff = impl(buf.begin(), value, ec);
                     n_diff -= 2; // correct for the "0x"
@@ -54,6 +52,7 @@ struct std_from_chars<RealT> {
             default:
                 return std::from_chars_result{ first, std::errc::not_supported };
         }
+
         // never goes here, but makes compiler quiet
         return std::from_chars_result{ first, std::errc::not_supported };
     }
@@ -78,7 +77,7 @@ private:
         } else if constexpr (std::is_same_v<RealT, long double>) {
             temp_result = std::strtold(first, &endptr);
         }
-        
+
         int const conv_errno = std::exchange(errno, errno_bak);
         ptrdiff_t const n_ptrdiff = endptr - first;
 
@@ -88,7 +87,7 @@ private:
             } else { // underflow
                 ec = std::errc::result_out_of_range;
             }
-        } 
+        }
         else if (n_ptrdiff) {
             value = temp_result;
             ec = std::errc{};
@@ -109,4 +108,4 @@ private:
     }
 };
 
-} // namespace convert::detail 
+} // namespace convert::detail
