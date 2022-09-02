@@ -77,11 +77,7 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
 
         return leaf::try_catch(
             [&] {
-#if 0
-                auto load = leaf::on_error(leaf::e_x3_parser_context{x3::what(*this), first, begin});
-#else
-                auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin}); // x3:what() lazy
-#endif
+                auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
 
                 attribute.value =
                     convert::bit_string_literal<attribute_type::value_type>(attribute);

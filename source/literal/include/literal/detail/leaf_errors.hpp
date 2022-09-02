@@ -72,7 +72,7 @@ public:
     {}
 
     ///
-    /// Construct the parser error context for error handling using LEAF, calls 
+    /// Construct the parser error context for error handling using LEAF, calls
     /// `x3::which()` lazy.
     ///
     /// @tparam ParserT Spirit X3 parser type.
@@ -82,7 +82,7 @@ public:
     ///
     template<X3ParserT ParserT>
     e_x3_parser_context(ParserT const& parser, IterT first_, IterT first_bak_)
-    : x3_what_lazy_fn{ [this, &parser](){ x3_what_str = x3::what(parser); } }
+    : x3_what_lazy_fn{ [this, &parser](){ return x3::what(parser); } }
     , first{ first_}
     , first_bak{ first_bak_ }
     {}
@@ -100,14 +100,14 @@ public:
     /// The name of the parser which fails, @see x3::what()
     std::string which() const {
         if(x3_what_lazy_fn) {
-            x3_what_lazy_fn();
+            x3_what_str = x3_what_lazy_fn();
         }
         return x3_what_str;
     }
 
 private:
-    std::function<void()> const x3_what_lazy_fn;
-    std::string mutable x3_what_str;
+    std::function<std::string()> const x3_what_lazy_fn;
+    std::string mutable x3_what_str{ "N/A" };
     IterT first;
     IterT const first_bak;
 };
@@ -131,7 +131,7 @@ struct e_error_trace
         int line;
     };
 
-    friend std::ostream & operator<<( std::ostream & os, e_error_trace const & trace );
+    friend std::ostream& operator<<(std::ostream& os, e_error_trace const& trace);
 
     std::deque<record> value;
 };
