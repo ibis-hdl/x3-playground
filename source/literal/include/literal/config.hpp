@@ -5,9 +5,9 @@
 
 #pragma once
 
-// macOS Clang users depend on libc++, where std::from_chars isn't 
+// macOS Clang users depend on libc++, where std::from_chars isn't
 // implemented for float types
-#if defined(_LIBCPP_VERSION )
+#if defined(_LIBCPP_VERSION)
 #define CONVERT_FROM_CHARS_USE_STRTOD
 #endif
 

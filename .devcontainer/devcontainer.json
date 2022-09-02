@@ -17,7 +17,7 @@
 	],
 
 	"containerEnv": {
-		"NINJA_STATUS" : "[%f/%t (%es)] "
+		"NINJA_STATUS" : "[%f/%t (∑:%es)] "
 	},
 
 	// Configure tool-specific properties.

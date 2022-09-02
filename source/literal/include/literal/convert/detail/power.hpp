@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <literal/detail/digit_traits.hpp>
-#include <literal/detail/constraint_types.hpp>
+#include <literal/convert/detail/digit_traits.hpp>
+#include <literal/convert/detail/constraint_types.hpp>
 
 #include <boost/leaf/exception.hpp>
 #include <boost/leaf/common.hpp>
@@ -25,10 +25,10 @@ namespace leaf = boost::leaf;
 
 namespace detail {
 
-// concept, see [coliru](https://coliru.stacked-crooked.com/a/09a6475cf60dd1e9)
+// concept, see [Coliru](https://coliru.stacked-crooked.com/a/09a6475cf60dd1e9)
 // concept, part #2: https://coliru.stacked-crooked.com/a/47b7cc5e62eb7431
 // concept, part #3: https://godbolt.org/z/oKTP5ajWb
-template <UnsignedIntergralType IntT, unsigned Base>
+template <UnsignedIntegralType IntT, unsigned Base>
 requires BasicBaseRange<Base>
 class power_table {
 public:
@@ -38,24 +38,27 @@ public:
 
 public:
     constexpr power_table()
-    {
+    : array{ [](){
+        std::array<value_type, MAX_INDEX> data;
         value_type value = 1;
-        for (std::size_t i = 0; i != MAX_INDEX; ++i) {
+        for (auto i = 0U; i != MAX_INDEX; ++i) {
             data[i] = value;
             value *= Base;
         }
-    }
+        return data;
+    }() }
+    { }
 
     value_type operator[](unsigned idx) const
     {
-        assert(idx < MAX_INDEX && "exponent index out of range");
-        return data[idx];
+        assert((idx < MAX_INDEX) && "exponent index out of range");
+        return array[idx];
     }
 
     static unsigned max_index() { return MAX_INDEX; }
 
 private:
-    std::array<value_type, MAX_INDEX> data;
+    std::array<value_type, MAX_INDEX> const array;
 };
 
 template <typename T>
@@ -66,12 +69,13 @@ struct power_fu {
 template <typename T>
 static power_fu<T> const power = {};
 
-template <UnsignedIntergralType IntT>
+template <UnsignedIntegralType IntT>
 struct power_fu<IntT> {
+    // FixMe: exp is int32_t, arg is unsigned!
     IntT operator()(unsigned base, unsigned exp_index) const
     {
         LEAF_ERROR_TRACE;
-        
+
         auto const max_exp = [&](unsigned base) {
             switch (base) {
                 case 2:

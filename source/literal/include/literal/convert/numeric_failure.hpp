@@ -7,7 +7,7 @@
 
 #include <boost/spirit/home/x3/directive/expect.hpp>  // x3::expectation_failure
 
-#include <literal/detail/leaf_errors.hpp>
+#include <literal/convert/leaf_errors.hpp>
 
 #include <string>
 
@@ -30,12 +30,13 @@ public:
 
 public:
     numeric_failure() = delete;
+    ~numeric_failure() override = default;
+
     numeric_failure(numeric_failure const&) = default;
-    numeric_failure(numeric_failure&&) = default;
-    ~numeric_failure() = default;
+    numeric_failure(numeric_failure&&) noexcept = default;
 
     numeric_failure& operator=(numeric_failure const&) = delete;
-    numeric_failure& operator=(numeric_failure&&) = default;
+    numeric_failure& operator=(numeric_failure&&) noexcept = default;
 
 public:
     numeric_failure(IteratorT where, std::string const& which, std::string const& what_str)

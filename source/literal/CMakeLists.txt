@@ -21,12 +21,39 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   Boost::headers
 )
 
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+  target_compile_definitions(${PROJECT_NAME} PRIVATE
+    _GLIBCXX_DEBUG _GLIBCXX_DEBUG_PEDANTIC
+  )
+endif()
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang") # libc++
+  target_compile_definitions(${PROJECT_NAME} PRIVATE
+    _LIBCPP_DEBUG
+  )
+endif()
+
+# ToDo Fix (most) of this issues
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  target_compile_options(${PROJECT_NAME} PRIVATE
+    -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic 
+    -Wno-disabled-macro-expansion
+    -Wno-padded
+    -Wno-shadow
+    -Wno-shadow-uncaptured-local
+    -Wno-unused-const-variable
+    -Wno-sign-conversion
+    -Wno-global-constructors -Wno-exit-time-destructors
+    -Wno-ctad-maybe-unsupported
+  )
+endif()
+
 include(CheckTypeSize)
 check_type_size(__int128_t __INT128_T LANGUAGE CXX)
 check_type_size(__uint128_t __UINT128_T LANGUAGE CXX)
 configure_file(
-  ${PROJECT_SOURCE_DIR}/include/literal/detail/int_types.hpp.in
-  ${PROJECT_BINARY_DIR}/include/literal/detail/int_types.hpp
+  ${PROJECT_SOURCE_DIR}/include/literal/convert/detail/int_types.hpp.in
+  ${PROJECT_BINARY_DIR}/include/literal/convert/detail/int_types.hpp
 )
 
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")

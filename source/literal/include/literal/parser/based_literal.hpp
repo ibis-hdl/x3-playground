@@ -8,9 +8,8 @@
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
 #include <literal/parser/error_handler.hpp>
-//#include <literal/parser/util/iterator_sentry.hpp>
-#include <literal/detail/leaf_error_handler.hpp>
-#include <literal/convert.hpp>
+#include <literal/convert/leaf_error_handler.hpp>
+#include <literal/convert/convert.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 
@@ -43,6 +42,8 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
     bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx, x3::unused_type,
                x3::unused_type) const
     {
+        LEAF_ERROR_TRACE;
+
         auto const begin = first;
 
         std::string base_literal_str;
@@ -88,6 +89,8 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
     bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx, x3::unused_type,
                attribute_type& attribute) const
     {
+        LEAF_ERROR_TRACE;
+
         auto const begin = first;
 
         // Note: the base has been initialized by outer rule before
@@ -127,6 +130,8 @@ struct based_real_parser : x3::parser<based_real_parser> {
     bool parse(IteratorT& first, IteratorT const& last, ContextT const& ctx, x3::unused_type,
                attribute_type& attribute) const
     {
+        LEAF_ERROR_TRACE;
+
         auto const begin = first;
 
         // Note: the base has been initialized by outer rule before

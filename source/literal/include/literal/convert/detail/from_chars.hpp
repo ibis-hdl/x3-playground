@@ -6,8 +6,9 @@
 #pragma once
 
 #include <literal/config.hpp>
-#include <literal/detail/constraint_types.hpp>
-#include <literal/convert_error.hpp>
+#include <literal/convert/detail/constraint_types.hpp>
+#include <literal/convert/numeric_failure.hpp>
+#include <literal/convert/leaf_errors.hpp>
 
 #include <boost/leaf/exception.hpp>
 #include <boost/leaf/common.hpp>
@@ -25,17 +26,17 @@ namespace detail {
 
 template <typename T>
 struct std_from_chars {
-    static auto call(const char* const first, const char* const last, T& value, unsigned base)
+    static auto call([[maybe_unused]] const char* const, [[maybe_unused]] const char* const, [[maybe_unused]] T&, [[maybe_unused]] int)
     {
-        static_assert(nostd::always_false<T>, "T must be of unsigned integral or float type");
+        static_assert(nostd::always_false<T>, "must be of unsigned integral or float type");
     }
 };
 
-template <IntergralType IntT>
+template <IntegralType IntT>
 struct std_from_chars<IntT> {
-    static auto call(const char* const first, const char* const last, IntT& value, unsigned base)
+    static auto call(const char* const first, const char* const last, IntT& value, unsigned base) noexcept
     {
-        return std::from_chars(first, last, value, base);
+        return std::from_chars(first, last, value, static_cast<int>(base));
     }
 };
 
@@ -45,7 +46,7 @@ struct std_from_chars<IntT> {
 
 template <RealType RealT>
 struct std_from_chars<RealT> {
-    static auto call(const char* const first, const char* const last, RealT& value, unsigned base)
+    static auto call(const char* const first, const char* const last, RealT& value, unsigned base) noexcept
     {
         switch (base) {
             case 10:
@@ -132,5 +133,5 @@ static from_chars_api<TargetT> const from_chars = {};
 }  // namespace convert
 
 #if defined(CONVERT_FROM_CHARS_USE_STRTOD)
-#include <literal/detail/from_chars_real.hpp>
+#include <literal/convert/detail/from_chars_real.hpp>
 #endif

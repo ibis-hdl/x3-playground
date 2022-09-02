@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <literal/detail/constraint_types.hpp>
+#include <literal/convert/detail/constraint_types.hpp>
 
 #include <fmt/format.h>
 
@@ -14,7 +14,7 @@
 #include <utility>  // exchange
 #include <cstdlib>  // strtof, strtod, strtold
 #include <cmath>    // isinf
-#include <fenv.h>   // fegetround, fesetround
+#include <cfenv>    // fegetround, fesetround
 
 namespace convert::detail {
 
@@ -28,12 +28,12 @@ template <typename T> struct std_from_chars;
 ///
 template <RealType RealT>
 struct std_from_chars<RealT> {
-    static auto call(const char* const first, const char* const last, RealT& value, unsigned base) noexcept
+    static auto call(const char* const first, const char* const last, RealT& value, unsigned base)
     {
         switch (base) {
             case 10: {
                     std::errc ec = std::errc::invalid_argument;
-                    std::size_t const n_diff = impl(first, value, ec);
+                    std::ptrdiff_t const n_diff = impl(first, value, ec);
                     return make_result(first, n_diff, ec);
                 }
 
@@ -41,10 +41,11 @@ struct std_from_chars<RealT> {
                     std::errc ec = std::errc::invalid_argument;
                     // create a fake buffer for use with `strtod`and friends for hex floats
                     auto buf = fmt::memory_buffer();
+                    auto const sv_length = static_cast<std::size_t>(last - first);
                     auto [out, size] = fmt::format_to_n(std::back_inserter(buf), buf.capacity() - 1,
-                                                        "0x{}", std::string_view(first, last - first)); // C++17!
+                                                        "0x{}", std::string_view(first, sv_length)); // Clang-13, C++17!
                     *out = '\0';
-                    std::size_t n_diff = impl(buf.begin(), value, ec);
+                    std::ptrdiff_t n_diff = impl(buf.begin(), value, ec);
                     n_diff -= 2; // correct for the "0x"
                     return make_result(first, n_diff, ec);
                 }
@@ -58,7 +59,7 @@ struct std_from_chars<RealT> {
     }
 
 private:
-    static std::ptrdiff_t impl(const char* const first, RealT& value, std::errc& ec) noexcept
+    static std::ptrdiff_t impl(const char* const first, RealT& value, std::errc& ec)
     {
         int const rounding = std::fegetround();
         if (rounding != FE_TONEAREST) {
@@ -96,7 +97,7 @@ private:
         return n_ptrdiff;
     }
 
-    static std::from_chars_result make_result(const char* const start, ptrdiff_t n_diff, std::errc ec) noexcept
+    static std::from_chars_result make_result(const char* const start, std::ptrdiff_t n_diff, std::errc ec) noexcept
     {
         std::from_chars_result result = { start, ec };
 

@@ -5,7 +5,7 @@
 
 #pragma once
 
-#include <literal/convert_error.hpp>
+#include <literal/convert/numeric_failure.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
@@ -42,7 +42,7 @@ struct my_x3_error_handler {  // try to recover and continue to parse
         // to the error handler. Therefore, own ones must be derived from them and dynamically
         // up-casted within the handler to be able to distinguish between them. In this way, more
         // descriptive error messages can be elaborated - the actual purpose. Concept: @see
-        // [coliru](https://coliru.stacked-crooked.com/a/4163d57183f76f93)
+        // [Coliru](https://coliru.stacked-crooked.com/a/4163d57183f76f93)
         auto const error_message = [](auto const& e) {
 
             using pointer_type = typename ::convert::numeric_failure<It>::const_pointer_type;
@@ -62,7 +62,7 @@ struct my_x3_error_handler {  // try to recover and continue to parse
                                  boost::typeindex::type_id<RuleID>().pretty_name());
         auto& error_handler = x3::get<x3::error_handler_tag>(ctx);
         error_handler(e.where(), error_message(e));
-
+#if 1
         // Error strategy: Accept the mistakes so far. They are already reported before. One
         // point to recover the parser from errors is to find a semicolon that terminates an
         // expression.
@@ -73,7 +73,7 @@ struct my_x3_error_handler {  // try to recover and continue to parse
             first = position + 1;  // move iter behind ';'
             return x3::error_handler_result::accept;
         }
-
+#endif
         first = last;  // no way
         return x3::error_handler_result::fail;
     }

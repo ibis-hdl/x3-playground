@@ -9,7 +9,7 @@
 
 // Note from [cpplang slack *concept* channel](
 // https://cpplang.slack.com/archives/C6K47F8TT/p1655242903316339) "std integral is just
-// the set of fundamental integer types, no library type is able to model the concept. "; "Looks
+// the set of fundamental integer types, no library type is able to model the concept. " ... "Looks
 // like libraries relying on std::is_integral simply cannot deal with UDT number types. They can
 // only hope to by relying on numer_limits<T>::is_integer instead."
 //
@@ -17,13 +17,13 @@
 // 128-bit integer for use with MSVC!
 
 template <class IntT>
-concept IntergralType = std::is_integral_v<IntT> && !std::is_same_v<IntT, bool>;
+concept IntegralType = std::is_integral_v<IntT> && !std::is_same_v<IntT, bool>;
 
 template <class IntT>
-concept UnsignedIntergralType = std::is_unsigned_v<IntT> && IntergralType<IntT>;
+concept UnsignedIntegralType = std::is_unsigned_v<IntT> && IntegralType<IntT>;
 
 template <class IntT>
-concept SignedIntergralType = std::is_signed_v<IntT> && IntergralType<IntT>;
+concept SignedIntegralType = std::is_signed_v<IntT> && IntegralType<IntT>;
 
 template <class RealT>
 concept RealType = std::is_floating_point_v<RealT>;
@@ -39,18 +39,13 @@ namespace nostd {
 ///
 /// Small helper for self explaining compiler error messages
 ///
-/// Usage:
-/// @code {.cpp}
-/// static_assert(always_false<T>, "must use correct specialization");
-/// @endcode
-///
-/// or even:
+/// Usage, e.g.:
 /// @code {.cpp}
 /// if constexpr (std::is_floating_point_v<T>) {
 ///     // handle this case
 /// }
 /// else {
-///     static_assert(always_false<T>, "T not supported");
+///     static_assert(always_false<T>, "type not supported");
 /// }
 /// @endcode
 ///

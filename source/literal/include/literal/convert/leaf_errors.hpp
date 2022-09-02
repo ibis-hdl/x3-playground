@@ -38,7 +38,7 @@ concept X3ParserT = std::derived_from<D, x3::parser<D>>;
 
 ///
 /// The call of x3::what() can be made lazy during construction time of
-/// the class, see [coliru](https://coliru.stacked-crooked.com/a/554f65ab2bd8e7b7).
+/// the class, see [Coliru](https://coliru.stacked-crooked.com/a/554f65ab2bd8e7b7).
 /// This simplifies the LEAF on-error payload:
 /// @code{.cpp}
 /// auto load = leaf::on_error([&]{ // lazy for call of x3::what()
@@ -53,10 +53,10 @@ public:
     ~e_x3_parser_context() = default;
 
     e_x3_parser_context(e_x3_parser_context const&) = delete;
-    e_x3_parser_context& operator=(e_x3_parser_context const&) = delete;
+    e_x3_parser_context(e_x3_parser_context&&) noexcept = default;
 
-    e_x3_parser_context(e_x3_parser_context&&) = default;
-    e_x3_parser_context& operator=(e_x3_parser_context&&) = default;
+    e_x3_parser_context& operator=(e_x3_parser_context const&) = delete;
+    e_x3_parser_context& operator=(e_x3_parser_context&&) noexcept = default;
 
     ///
     /// Construct the parser error context for error handling using LEAF.
@@ -82,7 +82,7 @@ public:
     ///
     template<X3ParserT ParserT>
     e_x3_parser_context(ParserT const& parser, IterT first_, IterT first_bak_)
-    : x3_what_lazy_fn{ [this, &parser](){ return x3::what(parser); } }
+    : x3_what_lazy_fn{ [&parser](){ return x3::what(parser); } }
     , first{ first_}
     , first_bak{ first_bak_ }
     {}
@@ -138,4 +138,4 @@ struct e_error_trace
 
 }  // namespace boost::leaf
 
-#define LEAF_ERROR_TRACE auto leaf_trace__ = ::boost::leaf::on_error([](::boost::leaf::e_error_trace& trace) { trace.value.emplace_front(::boost::leaf::e_error_trace::record{__FILE__, __LINE__}); } )
+#define LEAF_ERROR_TRACE auto leaf_trace_ = ::boost::leaf::on_error([](::boost::leaf::e_error_trace& trace) { trace.value.emplace_front(::boost::leaf::e_error_trace::record{__FILE__, __LINE__}); } )

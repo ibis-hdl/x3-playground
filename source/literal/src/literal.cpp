@@ -8,6 +8,7 @@
 #include <literal/parser/decimal_literal.hpp>
 #include <literal/parser/bit_string_literal.hpp>
 #include <literal/parser/based_literal.hpp>
+#include <literal/parser/identifier.hpp>
 #include <literal/parser/error_handler.hpp>
 
 #include <boost/spirit/home/x3.hpp>
@@ -69,9 +70,9 @@ using x3::lit;
 
 // clang-format off
 
-auto const c_style_comments = "/*" >> x3::lexeme[*(x3::char_ - "*/")] >> "*/";
-auto const cpp_style_comment = "//" >> *~x3::char_("\r\n");
-auto const comment = cpp_style_comment | c_style_comments;
+static auto const c_style_comments = "/*" >> x3::lexeme[*(x3::char_ - "*/")] >> "*/";
+static auto const cpp_style_comment = "//" >> *~x3::char_("\r\n");
+static auto const comment = cpp_style_comment | c_style_comments;
 
 // BNF: based_literal := base # based_integer [ . based_integer ] # [ exponent ]
 auto const based_literal = x3::rule<struct based_literal_class, ast::based_literal>{ "based literal" } =
@@ -81,12 +82,38 @@ auto const based_literal = x3::rule<struct based_literal_class, ast::based_liter
 auto const decimal_literal = x3::rule<struct decimal_literal_class, ast::decimal_literal>{ "decimal literal" } =
     parser::decimal_literal;
 
-// BNF: decimal_literal | based_literal
+// BNF: abstract_literal ::= decimal_literal | based_literal
 // Note: {decimal, based}_literal's AST nodes does have same memory layout now!
 // This would allow to treat them as abstract_literal without variant type; only
 // parsers would be different!
 auto const abstract_literal = x3::rule<struct abstract_literal_class, ast::abstract_literal>{ "based or decimal abstract literal" } =
     based_literal | decimal_literal
+    ;
+
+// Note, the LRM doesn't specify the allowed characters, hence it's assumed
+// that it follows the natural conventions.
+auto const unit_name = x3::rule<struct unit_name_class, std::string>{ "unit name" } =
+    x3::lexeme[ +x3::alpha ]
+    ;
+
+// BNF: physical_literal ::= [ abstract_literal ] unit_name
+auto const physical_literal = x3::rule<struct physical_literal_class, ast::physical_literal>{ "physical literal" } =
+    -abstract_literal >> unit_name;
+    ;
+
+// BNF: numeric_literal ::= abstract_literal | physical_literal
+auto const numeric_literal = x3::rule<struct numeric_literal_class, ast::numeric_literal>{ "numeric literal" } =
+    physical_literal | abstract_literal // order matters
+    ;
+
+// BNF: character_literal ::= ' graphic_character '
+auto const character_literal = x3::rule<struct character_literal_class, ast::character_literal>{ "character literal" } =
+    x3::lexeme ["\'" >> ( ( x3::graph - "\'" ) | "\'" ) >> "\'" ]
+    ;
+
+// BNF: enumeration_literal ::= identifier | character_literal
+auto const enumeration_literal = x3::rule<struct enumeration_literal_class, ast::enumeration_literal>{ "enumeration literal" } =
+    parser::identifier | character_literal
     ;
 
 auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } =
@@ -100,6 +127,7 @@ auto const grammar = x3::rule<struct grammar_class, ast::literals>{ "grammar" } 
 
 struct based_literal_class : my_x3_error_handler<based_literal_class> {};
 struct bit_string_literal_class : my_x3_error_handler<bit_string_literal_class> {};
+struct character_literal_class : my_x3_error_handler<character_literal_class> {};
 struct grammar_class : my_x3_error_handler<grammar_class> {};
 
 // clang-format on
@@ -139,7 +167,7 @@ int main()
     // failure test: bit string literal
     X := x"AFFE_Cafee"; // 'from_chars': Numerical result out of range
 /*
-    // failure test 
+    // failure test
     X := 2##;          // -> based literal real or integer type
     X := 3#011#;       // base not supported
     X := 2#120#1;      // wrong char set for binary

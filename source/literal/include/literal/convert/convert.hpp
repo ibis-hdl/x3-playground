@@ -6,13 +6,13 @@
 #pragma once
 
 #include <literal/ast.hpp>
-#include <literal/detail/safe_math.hpp>
-#include <literal/detail/power.hpp>
-#include <literal/detail/from_chars.hpp>
-#include <literal/detail/constraint_types.hpp>
+#include <literal/convert/detail/safe_math.hpp>
+#include <literal/convert/detail/power.hpp>
+#include <literal/convert/detail/from_chars.hpp>
+#include <literal/convert/detail/constraint_types.hpp>
 
 #include <boost/leaf.hpp>
-#include <literal/detail/leaf_errors.hpp>
+#include <literal/convert/leaf_errors.hpp>
 
 #include <range/v3/view/filter.hpp>
 #include <range/v3/view/join.hpp>
@@ -41,11 +41,11 @@ namespace detail {
 
 auto const underline_predicate = [](char chr) { return chr != '_'; };
 
-/// 
+///
 /// Prune the literal from underline '_' and copy result to string
-/// 
-/// @param literal 
-/// @return std::string 
+///
+/// @param literal
+/// @return std::string
 ///
 static inline std::string remove_underline(auto literal)
 {
@@ -54,20 +54,24 @@ static inline std::string remove_underline(auto literal)
     return ranges::to<std::string>(literal | views::filter(underline_predicate));
 }
 
-/// 
-/// char-to-decimal for character range with lookup O(1)
-/// 
-/// @param chr 
-/// @return std::uint32_t 
 ///
-/// maps '0-9', 'A-Z' and 'a-z' to their corresponding numeric value and maps all 
+/// char-to-decimal for character range with lookup O(1)
+///
+/// @param chr The character to convert to integer value.
+/// @return std::uint32_t
+///
+/// maps '0-9', 'A-Z' and 'a-z' to their corresponding numeric value and maps all
 /// other characters to 0x7F (7-Bit ASCII 127d 'delete').
+///
+/// Concept: @see [Coliru](https://godbolt.org/z/EvEnKqxox)
 ///
 std::uint32_t chr2dec(char chr);
 
-template <IntergralType TargetT>
+template <IntegralType TargetT>
 static inline auto as_integral_integer(unsigned base, std::string_view literal)
 {
+    LEAF_ERROR_TRACE;
+
     // FIXME in the past, got wrong results if e.g. the exponent literal was empty
     assert(!literal.empty() && "Attempt to to convert an empty literal");
 
@@ -94,10 +98,11 @@ static_assert(has_iec60559_math,
 
 }  // namespace detail
 
-template <UnsignedIntergralType IntT>
+template <UnsignedIntegralType IntT>
 struct convert_integer {
     IntT operator()(ast::integer_type const& integer) const
     {
+        LEAF_ERROR_TRACE;
         // std::cout << "convert_integer '" << integer << "'\n";
 
         // LEAF from std::from_chars()
@@ -121,6 +126,8 @@ private:
     // integer exponent is unsigned
     IntT integer_exponent(unsigned base, std::string_view exponent_literal) const
     {
+        LEAF_ERROR_TRACE;
+
         // base for the exponent representation is always decimal
         static auto constexpr base10 = 10U;
 
@@ -142,12 +149,14 @@ struct convert_real {
     // concept https://coliru.stacked-crooked.com/a/39b9d958b47f246b
     RealT operator()(ast::real_type const& real) const
     {
+        LEAF_ERROR_TRACE;
+
         // std::cout << "convert_real '" << real << "'\n";
 
         // This intermediate type is required for converting parts of the real literal to
         // their integer counterparts.
         // -------------------------------------------------------------------------------
-        // FixMe: make the concrete type depend on same IntergralType used for integer part. The
+        // FixMe: make the concrete type depend on same IntegralType used for integer part. The
         // intent is to use the full sized table of this type; e.g. by use of 32-bit we wouldn't use
         // all possible lookup values as this type would be of 64-bit.
         // -------------------------------------------------------------------------------
@@ -167,7 +176,7 @@ struct convert_real {
             // std::from_chars() directly supports base 16 floating-point/real types; but the
             // exponent support is of base 2, so use it without and multiply with the exponent
             // of base 16 later on (if necessary).
-            // concept [coliru](https://coliru.stacked-crooked.com/a/596e7723bb7dc531)
+            // concept [Coliru](https://coliru.stacked-crooked.com/a/596e7723bb7dc531)
             auto const with_exponent = false;
             auto const real_string = as_real_string(real, with_exponent);
             // LEAF
@@ -186,7 +195,7 @@ struct convert_real {
 
             return result;
         }
-        
+
         // other bases follow, which aren't directly supported by `from_chars()`
 
         // LEAF
@@ -286,9 +295,11 @@ private:
         return result;
     }
 
-    template <IntergralType IntT>
+    template <IntegralType IntT>
     RealT real_exponent(unsigned base, std::string_view exponent_literal) const
     {
+        LEAF_ERROR_TRACE;
+
         // exponent is signed
         using signed_type = std::make_signed_t<IntT>;
 
@@ -308,10 +319,12 @@ private:
 template <typename TargetT>
 static convert_real<TargetT> const real = {};
 
-template <UnsignedIntergralType TargetT>
+template <UnsignedIntegralType TargetT>
 struct convert_bit_string_literal {
     TargetT operator()(ast::bit_string_literal const& literal) const
     {
+        LEAF_ERROR_TRACE;
+
         auto const digit_string = detail::remove_underline(literal.literal);
         // LEAF
         auto const binary_number = detail::from_chars<TargetT>(literal.base, digit_string);

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 //
 
-#include <literal/detail/leaf_errors.hpp>
+#include <literal/convert/leaf_errors.hpp>
 
 #include <cfenv>
 #include <string_view>
@@ -11,7 +11,9 @@
 #include <iostream>
 
 #include <fmt/format.h>
+#include <fmt/ranges.h>
 #include <fmt/ostream.h>
+
 #include <range/v3/all.hpp>
 
 template <> struct fmt::formatter<boost::leaf::e_error_trace::record> {
@@ -29,7 +31,7 @@ template <> struct fmt::formatter<boost::leaf::e_error_trace::record> {
 namespace boost::leaf {
 
 std::ostream& operator<<(std::ostream& os, e_fp_exception e_fp) {
-    os << e_fp.as_string();
+    fmt::print(os, "{}", e_fp.as_string());
     return os;
 }
 
@@ -42,35 +44,36 @@ std::string e_fp_exception::as_string() const
     // clang-format off
     static constexpr auto exceptions = {
         // see https://en.cppreference.com/w/c/numeric/fenv/FE_exceptions
-        FE_OVERFLOW, 
-        FE_UNDERFLOW, 
-        FE_INVALID, 
-        FE_DIVBYZERO, 
-        FE_INEXACT 
+        FE_OVERFLOW,
+        FE_UNDERFLOW,
+        FE_INVALID,
+        FE_DIVBYZERO,
+        FE_INEXACT
     };
 
-    static constexpr auto fp_exception_name = [](int raised) {
-        if (raised & FE_OVERFLOW)  { return "overflow"sv; }
-        if (raised & FE_UNDERFLOW) { return "underflow"sv; }
-        if (raised & FE_INVALID)   { return "invalid"sv; }
-        if (raised & FE_DIVBYZERO) { return "division-by-zero"sv; }
-        if (raised & FE_INEXACT)   { return "inexact"sv; }
+    static constexpr auto fp_exception_name = [](int fp_raised) {
+        if (fp_raised & FE_OVERFLOW)  { return "overflow"sv; }
+        if (fp_raised & FE_UNDERFLOW) { return "underflow"sv; }
+        if (fp_raised & FE_INVALID)   { return "invalid"sv; }
+        if (fp_raised & FE_DIVBYZERO) { return "division-by-zero"sv; }
+        if (fp_raised & FE_INEXACT)   { return "inexact"sv; }
         return std::string_view{};
     };
 
-    auto const str = exceptions
-        | views::transform([&](int e){ return fp_exception_name(e & this->raised); })
-        | views::filter([](auto sv){ return !sv.empty(); }) 
-        | views::join(", ")
-        | ranges::to<std::string>()
-        ; 
+    auto /* const */ fe_list = exceptions
+        | views::transform([&](int e){ return fp_exception_name(e & raised); })
+        | views::filter([](auto sv){ return !sv.empty(); })
+        ;
     // clang-format on
 
-    return str;
+    fmt::memory_buffer buf;
+    fmt::format_to(std::back_inserter(buf), "{}", fmt::join(fe_list, ", "));
+
+    return to_string(buf);
 }
 
 
-std::ostream& operator<<(std::ostream& os, e_error_trace const& trace) 
+std::ostream& operator<<(std::ostream& os, e_error_trace const& trace)
 {
     for(unsigned i = 1; auto const& rec : trace.value) {
         fmt::print(os, "  {}: {}\n", i++, rec);

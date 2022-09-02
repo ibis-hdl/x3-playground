@@ -8,8 +8,8 @@
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
 #include <literal/parser/error_handler.hpp>
-#include <literal/detail/leaf_error_handler.hpp>
-#include <literal/convert.hpp>
+#include <literal/convert/leaf_error_handler.hpp>
+#include <literal/convert/convert.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 
@@ -62,6 +62,8 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
     bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
                x3::unused_type, attribute_type& attribute) const
     {
+        LEAF_ERROR_TRACE;
+
         skip_over(first, last, ctx);
         auto const begin = first;
 
@@ -103,6 +105,8 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
     bool parse(IteratorT& first, IteratorT const& last, [[maybe_unused]] ContextT const& ctx,
                x3::unused_type, attribute_type& attribute) const
     {
+        LEAF_ERROR_TRACE;
+
         skip_over(first, last, ctx);
         auto const begin = first;
 

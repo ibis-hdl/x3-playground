@@ -1,6 +1,8 @@
 #include <literal/ast.hpp>
+#include <literal/util/overloaded.hpp>
 
 #include <fmt/format.h>
+#include <fmt/ostream.h>
 
 #include <iostream>
 #include <iomanip>
@@ -24,96 +26,117 @@ struct formatter<std::optional<T>> : fmt::formatter<T> {
 
 namespace ast {
 
-std::ostream& operator<<(std::ostream& os, ast::real_type const& r)
+std::ostream& operator<<(std::ostream& os, ast::real_type const& real)
 {
-    os << fmt::format("{}#{}.{}#", r.base, r.integer, r.fractional);
-    if (!r.exponent.empty()) {
-        os << fmt::format("e{}", r.exponent);
+    fmt::print(os, "{}#{}.{}#", real.base, real.integer, real.fractional);
+    if (!real.exponent.empty()) {
+        fmt::print(os, "e{}", real.exponent);
     }
-    if (r.value) {
-        os << fmt::format(" ({}r)", r.value.value());
+    if (real.value) {
+        fmt::print(os, " ({}r)", real.value.value());
     }
+
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, ast::integer_type const& i)
+std::ostream& operator<<(std::ostream& os, ast::integer_type const& int_)
 {
-    os << fmt::format("{}#{}#", i.base, i.integer);
-    if (!i.exponent.empty()) {
-        os << fmt::format("e{}", i.exponent);
+    fmt::print(os, "{}#{}#", int_.base, int_.integer);
+    if (!int_.exponent.empty()) {
+        fmt::print(os, "e{}", int_.exponent);
     }
-    if (i.value) {
-        os << fmt::format(" ({}i)", i.value.value());
+    if (int_.value) {
+        fmt::print(os, " ({}i)", int_.value.value());
     }
+
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, ast::based_literal const& l)
+std::ostream& operator<<(std::ostream& os, ast::based_literal const& literal)
 {
-    struct v {
-        void operator()(ast::real_type const& r) const { os << r; }
-        void operator()(ast::integer_type const& i) const { os << i; }
-        std::ostream& os;
-        v(std::ostream& os_)
-            : os{ os_ }
-        {
-        }
-    } const v(os);
-    boost::apply_visitor(v, l.num);
+    boost::apply_visitor(util::overloaded {
+        [&](ast::real_type const& real) { fmt::print(os, "{}", real); },
+        [&](ast::integer_type const& int_) { fmt::print(os, "{}", int_); }
+    }, literal.num);
+
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, ast::decimal_literal const& l)
+std::ostream& operator<<(std::ostream& os, ast::decimal_literal const& literal)
 {
-    struct v {
-        void operator()(ast::real_type const& r) const { os << r; }
-        void operator()(ast::integer_type const& i) const { os << i; }
-        std::ostream& os;
-        v(std::ostream& os_)
-            : os{ os_ }
-        {
-        }
-    } const v(os);
-    boost::apply_visitor(v, l.num);
+    boost::apply_visitor(util::overloaded {
+        [&](ast::real_type const& real) { fmt::print(os, "{}", real); },
+        [&](ast::integer_type const& int_) { fmt::print(os, "{}", int_); }
+    }, literal.num);
+
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, ast::abstract_literal const& l)
+std::ostream& operator<<(std::ostream& os, ast::abstract_literal const& literal)
 {
-    struct v {
-        void operator()(ast::based_literal b) const { os << b; }
-        void operator()(ast::decimal_literal d) const { os << d; }
-        std::ostream& os;
-        v(std::ostream& os_)
-            : os{ os_ }
-        {
-        }
-    } const v(os);
-    boost::apply_visitor(v, l);
+    boost::apply_visitor(util::overloaded {
+        [&](ast::based_literal lit) { fmt::print(os, "{}", lit); },
+        [&](ast::decimal_literal lit) { fmt::print(os, "{}", lit); }
+    },  literal);
+
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& l)
+std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& literal)
 {
-    os << fmt::format(R"({}"{}")", l.base, l.literal);
-    if (l.value) {
-        os << fmt::format(" ({}d)", l.value.value());
+    fmt::print(os, R"({}"{}")", literal.base, literal.literal);
+    if (literal.value) {
+        fmt::print(os, " ({}d)", literal.value.value());
     }
+
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, ast::literal const& l)
+std::ostream& operator<<(std::ostream& os, ast::literal const& literal)
 {
-    struct v {
-        void operator()(ast::abstract_literal a) const { os << a; }
-        void operator()(ast::bit_string_literal b) const { os << b; }
-        std::ostream& os;
-        v(std::ostream& os_)
-            : os{ os_ }
-        {
-        }
-    } const v(os);
-    boost::apply_visitor(v, l);
+    boost::apply_visitor(util::overloaded {
+        [&](ast::abstract_literal lit) { fmt::print(os, "{}", lit); },
+        [&](ast::bit_string_literal lit) { fmt::print(os, "{}", lit); }
+    }, literal);
+
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ast::identifier const& int_)
+{
+    fmt::print(os, "{}", int_.name);
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ast::physical_literal const& literal)
+{
+    fmt::print(os, "{} [{}]", literal.literal, literal.unit_name);
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ast::numeric_literal const& literal)
+{
+    boost::apply_visitor(util::overloaded {
+        [&](ast::abstract_literal lit) { fmt::print(os, "{}", lit); },
+        [&](ast::physical_literal lit) { fmt::print(os, "{}", lit); }
+    }, literal);
+
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ast::character_literal const& literal)
+{
+    fmt::print(os, "'{}'", literal.literal);
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ast::enumeration_literal const& literal)
+{
+    boost::apply_visitor(util::overloaded {
+        [&](ast::identifier ident) { fmt::print(os, "{}", ident); },
+        [&](ast::character_literal lit) { fmt::print(os, "{}", lit); }
+    }, literal);
+
     return os;
 }
 

@@ -8,8 +8,8 @@
 #include <literal/ast.hpp>
 #include <literal/parser/char_parser.hpp>
 #include <literal/parser/error_handler.hpp>
-#include <literal/convert.hpp>
-#include <literal/detail/leaf_error_handler.hpp>
+#include <literal/convert/convert.hpp>
+#include <literal/convert/leaf_error_handler.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 #include <literal/parser/util/x3_lazy.hpp>

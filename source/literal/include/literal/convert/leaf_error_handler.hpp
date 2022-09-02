@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <literal/convert_error.hpp>
-#include <literal/detail/leaf_errors.hpp>
+#include <literal/convert/numeric_failure.hpp>
+#include <literal/convert/leaf_errors.hpp>
 
 #include <boost/leaf.hpp>
 
@@ -46,9 +46,12 @@ static inline auto const leaf_error_handlers = std::make_tuple(
         IteratorT iter = (e_iter) ? e_iter->value : parser_ctx.iter();
 
         leaf::throw_exception( // --
-            // FixMe This call results into ASAN error 'alloc_dealloc_mismatch' inside (371d2c2) by use with libc++, or
-            // attempting free on address which was not malloc()-ed
-            // which seems to be related to leaf::e_x3_parser_context
+            // FixMe This call results into ASAN error 'alloc_dealloc_mismatch' **solely and only** if 
+            // the combination Ubuntu, Clang with libc++ is used (`__wrap_iter` related, see ASAN log 
+            // [pastebin](https://pastebin.com/34tUBc8v)). The intent of this use case is to get 
+            // compile errors for non-owning macOS developer, but even macOS with Clang-13/libc++ isn't 
+            // affected. The concept self works flawless, see [Godbolt](https://godbolt.org/z/nvsKdG9Yb)
+            // even by use of `-std=c++20 -fsanitize=address,undefined -stdlib=libc++`
             convert::numeric_failure<IteratorT>(
                 // notation x3::expectation_failure(where, which, what)
                 iter, parser_ctx.which(), ec.message()

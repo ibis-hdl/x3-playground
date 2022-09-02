@@ -5,12 +5,12 @@
 
 #pragma once
 
-#include <literal/detail/int_types.hpp>
-#include <literal/detail/constraint_types.hpp>
+#include <literal/convert/detail/int_types.hpp>
+#include <literal/convert/detail/constraint_types.hpp>
 
 #include <boost/leaf/exception.hpp>
 #include <boost/leaf/common.hpp>
-#include <literal/detail/leaf_errors.hpp>
+#include <literal/convert/leaf_errors.hpp>
 
 #include <type_traits>
 #include <limits>
@@ -25,7 +25,7 @@ namespace leaf = boost::leaf;
 
 namespace detail {
 
-// promote type concept see [coliru](https://coliru.stacked-crooked.com/a/ca649fc42f0b13c9)
+// promote type concept see [Coliru](https://coliru.stacked-crooked.com/a/ca649fc42f0b13c9)
 template <typename T>
 struct promote {
     static_assert(nostd::always_false<T>, "numeric type not supported");
@@ -66,7 +66,7 @@ using promote_t = typename promote<T>::type;
 // Problem with overflow detection of double
 
 // Select numeric implementation ((unsigned) integer and real)
-// concept see [coliru](https://coliru.stacked-crooked.com/a/dd9e4543247597ad)
+// concept see [Coliru](https://coliru.stacked-crooked.com/a/dd9e4543247597ad)
 template <typename T>
 struct safe_mul {
     static_assert(nostd::always_false<T>, "unsupported numeric type");
@@ -80,7 +80,7 @@ struct safe_add {
 // To multiply type promotion is used; alternative for integer see
 // [Catch and compute overflow during multiplication of two large integers](
 //  https://stackoverflow.com/questions/1815367/catch-and-compute-overflow-during-multiplication-of-two-large-integers)
-template <IntergralType IntT>
+template <IntegralType IntT>
 struct safe_mul<IntT> {
     IntT operator()(IntT lhs, IntT rhs) const
     {
@@ -92,7 +92,7 @@ struct safe_mul<IntT> {
             auto const ec = std::make_error_code(std::errc::result_out_of_range);
             throw leaf::exception(ec, leaf::e_api_function{ "safe_mul<IntT>" });
         }
-        
+
         return static_cast<IntT>(result);
     }
 };
@@ -125,7 +125,7 @@ struct safe_add<RealT> {
     RealT operator()(RealT lhs, RealT rhs) const
     {
         LEAF_ERROR_TRACE;
-        
+
         std::feclearexcept(FE_ALL_EXCEPT);
 
         auto const result = lhs + rhs;

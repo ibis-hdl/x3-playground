@@ -12,7 +12,7 @@
 #include <range/v3/algorithm/copy.hpp>
 #include <range/v3/algorithm/copy_n.hpp>
 
-#include <literal/detail/constraint_types.hpp>
+#include <literal/convert/detail/constraint_types.hpp>
 
 #include <string_view>
 #include <string>
@@ -28,11 +28,11 @@ namespace char_parser {
 // FixMe: [Misunderstanding repeat directive - it should fail, but doesn't](
 // https://stackoverflow.com/questions/72915071/misunderstanding-repeat-directive-it-should-fail-but-doesnt/72916318#72916318)
 // FixMe: Limit digits
-auto const delimit_numeric_digits = [](auto&& char_range, char const* name) {
-    auto cs = x3::char_(char_range);
+static auto const delimit_numeric_digits = [](auto&& char_range, char const* name = "numeric digits" ) {
+    auto const chars = x3::char_(char_range);
     // clang-format off
-    return x3::rule<struct _, std::string>{ "numeric digits" } =
-        x3::raw[cs >> *('_' >> +cs | cs)];
+    return x3::rule<struct _, std::string>{ name } =
+        x3::raw[chars >> *('_' >> +chars | chars)];
     // clang-format on
 };
 
@@ -42,7 +42,7 @@ static auto const dec_integer = delimit_numeric_digits("0-9", "decimal digits");
 static auto const hex_integer = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
 
 ///
-/// create charsets by given base
+/// create charsets by any given base in range [2...36]
 /// concept [godbolt.org](https://godbolt.org/z/T5YEYhE54)
 ///
 auto const based_charset = [](unsigned base) {
@@ -74,8 +74,8 @@ template <typename IteratorT>
 struct based_integer_parser {
     auto operator()(unsigned base, char const* name = "based integer") const
     {
-        auto const as = [](auto&& derived_parser) {
-            return x3::any_parser<IteratorT, std::string>{ x3::as_parser(derived_parser) };
+        auto const as = [](auto&& parser) {
+            return x3::any_parser<IteratorT, std::string>{ x3::as_parser(parser) };
         };
 
         switch (base) {
@@ -88,6 +88,7 @@ struct based_integer_parser {
             case 16:
                 return as(hex_integer);
             default:
+                // any other base
                 return as(delimit_numeric_digits(based_charset(base), name));
         }
     }
@@ -96,6 +97,7 @@ struct based_integer_parser {
 template <typename IteratorT>
 static based_integer_parser<IteratorT> const based_integer = {};
 
+#if 0 // unused
 namespace detail {
 //
 // create charsets by given base at compile time (using constexpr)
@@ -111,8 +113,8 @@ struct String {
 
     constexpr String() = default;
 
-    constexpr String(char const (&pp)[n]) noexcept { ranges::copy(pp, std::begin(p)); };
-    constexpr String(char const* pp) noexcept { ranges::copy_n(pp, n, std::begin(p)); };
+    constexpr String(char const (&pp)[n]) noexcept { ranges::copy(pp, std::begin(p)); }
+    constexpr String(char const* pp) noexcept { ranges::copy_n(pp, n, std::begin(p)); }
     constexpr operator std::string_view() const noexcept { return { std::data(p), std::size(p) }; }
 };
 
@@ -127,14 +129,14 @@ constexpr String<n_lhs + n_rhs> operator+(String<n_lhs> lhs, String<n_rhs> rhs)
 template <String... Strs>
 struct join {
     // Join all strings into a single std::array of chars in static storage
-    static constexpr auto arr = (Strs + ...);
+    static auto constexpr arr = (Strs + ...);
     // View as a std::string_view
     static constexpr std::string_view value{ arr };
 };
 
 // Helper to get the value out
 template <String... Strs>
-static constexpr auto join_v = join<Strs...>::value;
+static auto constexpr join_v = join<Strs...>::value;
 
 template <unsigned Base>
 requires BasicBaseRange<Base>  // --
@@ -157,16 +159,17 @@ requires BasicBaseRange<Base>  // --
 
     using namespace detail;
 
-    auto constexpr d = String<dig_idx>(digits.data());
-    auto constexpr l = String<chr_idx>(lower_case.data());
-    auto constexpr u = String<chr_idx>(upper_case.data());
+    auto constexpr dig = String<dig_idx>(digits.data());
+    auto constexpr low = String<chr_idx>(lower_case.data());
+    auto constexpr upr = String<chr_idx>(upper_case.data());
 
-    constexpr auto chrset = join_v<d, l, u>;
+    auto constexpr chrset = join_v<dig, low, upr>;
 
     return chrset;
 }
 
 }  // namespace detail
+#endif // unused
 
 // static auto const dec_charset = detail::based_charset_gen<10>();
 
