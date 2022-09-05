@@ -52,10 +52,9 @@ auto const based_charset = [](unsigned base) {
     static auto constexpr digits = "0123456789"sv;
     static auto constexpr lower_letters = "abcdefghijklmnopqrstuvwxyz"sv;
     static auto constexpr upper_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"sv;
-    auto constexpr MAX_BASE = digits.size() + lower_letters.size();
 
     static_assert(lower_letters.size() == upper_letters.size(), "");
-    assert((2 <= base && base <= MAX_BASE) && "Base must be in range [2, 36]");
+    assert((2 <= base && base <= 36) && "Base must be in range [2, 36]");
 
     auto const dig_idx = base < digits.size() ? base : digits.size();
     auto const chr_idx = base > digits.size() ? base - dig_idx : 0;

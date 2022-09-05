@@ -21,20 +21,22 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   Boost::headers
 )
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-  target_compile_definitions(${PROJECT_NAME} PRIVATE
-    _GLIBCXX_DEBUG _GLIBCXX_DEBUG_PEDANTIC
-  )
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
+  set(CLANG_MSVC_VARIANT 1)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
+  set(CLANG_GCC_VARIANT 1)
 endif()
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang") # libc++
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  # Clang on Linux uses libstdc++
+  # Note: this collides with libc++ when using Clang: 'debug/safe_iterator.h' file not found
   target_compile_definitions(${PROJECT_NAME} PRIVATE
-    _LIBCPP_DEBUG
+    $<$<CONFIG:Debug>:_GLIBCXX_DEBUG _GLIBCXX_DEBUG_PEDANTIC>
   )
 endif()
 
 # ToDo Fix (most) of this issues
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT CLANG_MSVC_VARIANT)
   target_compile_options(${PROJECT_NAME} PRIVATE
     -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic 
     -Wno-disabled-macro-expansion
@@ -56,16 +58,21 @@ configure_file(
   ${PROJECT_BINARY_DIR}/include/literal/convert/detail/int_types.hpp
 )
 
-if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
-  target_compile_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Debug>:/fsanitize=address>")
-  target_link_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Debug>:/fsanitize=address>")
-else()
-  target_compile_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Debug>:-fsanitize=address,undefined>")
-  target_link_options(${PROJECT_NAME} PRIVATE "$<$<CONFIG:Debug>:-fsanitize=address,undefined>")
+if(NOT CLANG_MSVC_VARIANT AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  # clang-cl: note: AddressSanitizer doesn't support linking with debug runtime libraries yet
+  target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+  target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
+  target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
 endif()
 
 target_include_directories(
   ${PROJECT_NAME} PRIVATE
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+)
+
+add_test(NAME test_literal
+    COMMAND ${PROJECT_NAME} 
 )
