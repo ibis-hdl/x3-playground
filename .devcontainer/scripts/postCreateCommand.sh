@@ -31,3 +31,9 @@ pip3 --disable-pip-version-check --no-cache-dir install wheel conan
 # check: https://github.com/conan-io/conan/issues/11881
 CXX=clang++ conan profile new --detect --force clang
 CXX=g++ conan profile new --detect --force gcc
+
+# Work around [GDB crashes under visual-studio-code with internal error #103](
+#  https://github.com/microsoft/vscode-cpptools/issues/103)
+wget https://launchpad.net/ubuntu/+source/gdb/12.1-0ubuntu1/+build/23606376/+files/gdb_12.1-0ubuntu1_amd64.deb
+sudo apt install ./gdb_12.1-0ubuntu1_amd64.deb
+rm ./gdb_12.1-0ubuntu1_amd64.deb

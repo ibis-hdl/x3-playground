@@ -88,11 +88,10 @@ struct power_fu<IntT> {
                     return hex_lut.max_index();
                 default: {
                     // Generic implementation for arbitrary bases
-                    std::cerr << "WARNING: use of weak supported base of " << base << '\n';
+                    // TODO make the math integer aware and even simpler
                     auto const log = [](double base, double x) {
                         return std::log10(x) / std::log10(base);
                     };
-                    // ToDo: Maybe cache the value by base as map/vector for search/reuse
                     return static_cast<unsigned>(std::numeric_limits<IntT>::digits / log(2, base));
                 }
             }

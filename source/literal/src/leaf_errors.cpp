@@ -14,7 +14,9 @@
 #include <fmt/ranges.h>
 #include <fmt/ostream.h>
 
-#include <range/v3/all.hpp>
+#include <range/v3/view/filter.hpp>
+#include <range/v3/view/transform.hpp>
+#include <range/v3/view/reverse.hpp>
 
 template <> struct fmt::formatter<boost::leaf::e_error_trace::record> {
     constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
@@ -75,8 +77,10 @@ std::string e_fp_exception::as_string() const
 
 std::ostream& operator<<(std::ostream& os, e_error_trace const& trace)
 {
-    for(unsigned i = 1; auto const& rec : trace.value) {
-        fmt::print(os, "  {}: {}\n", i++, rec);
+    namespace views = ranges::views;
+
+    for(auto i = trace.value.size(); auto const& record : trace.value | views::reverse) {
+        fmt::print(os, "  {}: {}\n", i--, record);
     }
     return os;
 }

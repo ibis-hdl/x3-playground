@@ -81,8 +81,9 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
             return false;
         }
 
-        attribute.base = 10U;  // decimal literal has always base = 10
+        attribute.base = 10U;  // decimal literal is always to the base of 10
 
+#if defined(USE_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
@@ -92,6 +93,9 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
                 return true;
             },
             convert::leaf_error_handlers<IteratorT>);
+#else
+        return true;
+#endif
     }
 };
 

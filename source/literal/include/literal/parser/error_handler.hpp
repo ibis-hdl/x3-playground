@@ -57,23 +57,28 @@ struct my_x3_error_handler {  // try to recover and continue to parse
                 return fmt::format("Error! Expecting {} here:", e.which());
             }
         };
-
+#if 0
         std::cerr << fmt::format("### error handler for RuleID: '{}' ###\n",
                                  boost::typeindex::type_id<RuleID>().pretty_name());
+#endif
         auto& error_handler = x3::get<x3::error_handler_tag>(ctx);
         error_handler(e.where(), error_message(e));
-#if 1
-        // Error strategy: Accept the mistakes so far. They are already reported before. One
-        // point to recover the parser from errors is to find a semicolon that terminates an
-        // expression.
-        // FIXME Doesn't work as intended - doesn't recover correctly: failed with expectation
-        // error of ';'
-        auto const position = std::find_if(first, last, [](char chr){ return chr == ';'; });
+
+        // Error strategy: Accept the mistakes so far. They are already reported before.
+
+        // TODO However, it is not done with a simple pattern search, as this can also hit
+        // within comments! Hence, to recover the parser by find a semicolon that terminates
+        // an expression is not sufficient. The concept as such works: https://godbolt.org/z/Y8rssaEGh
+
+        auto const find_position = [&](char delim) {
+            return std::find_if(first, last, [delim](char chr){ return (chr == delim); });};
+        auto const position = find_position(';');
+
         if (position != last) {
             first = position + 1;  // move iter behind ';'
             return x3::error_handler_result::accept;
         }
-#endif
+
         first = last;  // no way
         return x3::error_handler_result::fail;
     }

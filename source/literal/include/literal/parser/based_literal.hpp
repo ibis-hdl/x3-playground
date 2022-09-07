@@ -28,7 +28,19 @@ namespace parser {
 namespace x3 = boost::spirit::x3;
 namespace leaf = boost::leaf;
 
+/// The Spirit X3 context tag for based integer literal's base specifier
 using based_integer_base_tag = struct {};
+
+/// Check, if a base is in range of [2 ... 36]
+/// These restrictions come from the limited ASCII charset respectively
+/// std::from_chars(), std::strtol() etc.
+inline bool valid_base(unsigned base) {
+    return (2U <= base && base <= 36U);
+}
+
+inline bool vhdl_supported_base(unsigned base) {
+    return base == 2U || base == 8U || base == 10U || base == 16U;
+}
 
 namespace detail {
 
@@ -54,6 +66,9 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
             return false;
         }
 
+        // convert parse result into base specifier and use `with` directive to
+        // inject this value into the Spirit X3 context. Base specifier is required to select
+        // correct character based_{real, integer} parser later.
         return leaf::try_catch(
             [&] {
                 // base specifier is always decimal
@@ -61,21 +76,18 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
 
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
 
-                // LEAF - from_chars() may fail
+                // from_chars() may fail
                 auto const base_result =
                     convert::detail::as_integral_integer<unsigned>(base10, base_literal_str);
-                // store the parsed base for use at based_{real, integer} later
+
                 x3::get<based_integer_base_tag>(ctx) = base_result;
+
+                // Note: here, no check for a valid base can take place, because this parser
+                // is called also for other rules due to parser alternatives (namely decimal literal).
 
                 return true;
             },
             convert::leaf_error_handlers<IteratorT>);
-    }
-
-private:
-    static bool supported_base(unsigned base)
-    {
-        return base == 2U || base == 8U || base == 10U || base == 16U;
     }
 };
 
@@ -109,6 +121,7 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
             return false;
         }
 
+#if defined(USE_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
@@ -118,6 +131,9 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
                 return true;
             },
             convert::leaf_error_handlers<IteratorT>);
+#else
+        return true;
+#endif
     }
 };
 
@@ -150,6 +166,7 @@ struct based_real_parser : x3::parser<based_real_parser> {
             return false;
         }
 
+#if defined(USE_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
@@ -159,6 +176,9 @@ struct based_real_parser : x3::parser<based_real_parser> {
                 return true;
             },
             convert::leaf_error_handlers<IteratorT>);
+#else
+        return true;
+#endif
     }
 };
 
@@ -166,6 +186,7 @@ static based_real_parser const based_real = {};
 
 }  // namespace detail
 
+// BNF: based_literal ::= base # based_integer [ . based_integer ] # [ exponent ]
 struct based_literal_parser : x3::parser<based_literal_parser> {
     using attribute_type = ast::based_literal;
 
@@ -180,12 +201,25 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
         using detail::based_integer;
         using detail::based_real;
 
-        // store the parsed base (specifier) for use at based_{real, integer}, by introducing an
-        // extra context
+        //std::cout << "based_literal_parser: '" <<std::string_view(first, first + 12) << "'\n";
+
+        auto const check_base = x3::rule<struct _>{ "valid base specifier" } = x3::eps[
+            ([&](auto&& ctx){
+                _pass(ctx) = valid_base(x3::get<based_integer_base_tag>(ctx));
+            })];
+
+        // This parser is tricky. The base of the literal determines the following, actual literal
+        // parser regarding the charset. Therefore the parser has three parts. The result of the base
+        // parser is stored in the (local) context and fetched later. In between is the check for a valid
+        // base range.
+
+        // TODO The expect directive for valid base specifier works, but the error location indicator
+        // show to the (to late) iterator position. Hence the error message isn't such intuitive.
+
         // clang-format off
-        auto const grammar = x3::with<based_integer_base_tag>(unsigned{} /* base */)[
+        auto const grammar = x3::with<based_integer_base_tag>(unsigned{} /* base specifier */)[
             x3::lexeme[
-                based_base_specifier >> '#' >> (based_real | based_integer)
+                based_base_specifier >> '#' >> x3::expect[ check_base ] >> (based_real | based_integer)
             ]
         ];
         // clang-format on

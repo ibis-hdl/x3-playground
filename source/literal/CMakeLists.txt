@@ -21,6 +21,11 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
   Boost::headers
 )
 
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+  USE_CONVERT
+  #USE_LEAF_ERROR_TRACE
+)
+
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "MSVC")
   set(CLANG_MSVC_VARIANT 1)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_FRONTEND_VARIANT STREQUAL "GNU")
@@ -35,10 +40,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   )
 endif()
 
-# ToDo Fix (most) of this issues
+# TODO Fix (most) of this issues
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT CLANG_MSVC_VARIANT)
   target_compile_options(${PROJECT_NAME} PRIVATE
-    -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic 
+    -Weverything -Wno-c++98-compat -Wno-c++98-compat-pedantic
     -Wno-disabled-macro-expansion
     -Wno-padded
     -Wno-shadow
@@ -58,13 +63,13 @@ configure_file(
   ${PROJECT_BINARY_DIR}/include/literal/convert/detail/int_types.hpp
 )
 
-if(NOT CLANG_MSVC_VARIANT AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND NOT CLANG_MSVC_VARIANT)
   # clang-cl: note: AddressSanitizer doesn't support linking with debug runtime libraries yet
-  target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
-  target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
   target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
+elseif(NOT CLANG_MSVC_VARIANT)
+  target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+  target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
 endif()
 
 target_include_directories(
@@ -74,5 +79,5 @@ target_include_directories(
 )
 
 add_test(NAME test_literal
-    COMMAND ${PROJECT_NAME} 
+    COMMAND ${PROJECT_NAME}
 )

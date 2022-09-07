@@ -90,7 +90,7 @@ public:
 public:
     /// Restore the iterator to the position before the error occurred.
     void unroll() {
-        std::cerr << "Restore parser iterator position\n";
+        //std::cerr << "Restore parser iterator position\n";
         first = first_bak;
     }
 
@@ -138,4 +138,10 @@ struct e_error_trace
 
 }  // namespace boost::leaf
 
-#define LEAF_ERROR_TRACE auto leaf_trace_ = ::boost::leaf::on_error([](::boost::leaf::e_error_trace& trace) { trace.value.emplace_front(::boost::leaf::e_error_trace::record{__FILE__, __LINE__}); } )
+#if defined(USE_LEAF_ERROR_TRACE)
+#define LEAF_ERROR_TRACE auto leaf_trace_ = \
+    ::boost::leaf::on_error([](::boost::leaf::e_error_trace& trace) { \
+    trace.value.emplace_front(::boost::leaf::e_error_trace::record{__FILE__, __LINE__}); } )
+#else
+#define LEAF_ERROR_TRACE
+#endif

@@ -139,11 +139,12 @@ int main()
     using namespace ast;
 
     std::string const input = R"(
+
     // bit string literal
     X := b"1000_0001";
     X := x"AFFE_Cafe";
     X := O"777";
-    //X := X""; // FixMe: empty also allowed
+    //X := X""; // FIXME empty also allowed
     // decimal literal
     X := 42;
     X := 1e+3;
@@ -151,6 +152,7 @@ int main()
     X := 2.2E-6;
     X := 3.14e+1;
     // based literal
+    X := 4#1_20#E1;     // 96 - yes, base for integers are (weak) supported
     X := 8#1_20#E1;
     X := 0_2#1100_0001#;
     X := 10#42#E4;
@@ -164,10 +166,14 @@ int main()
     X := 2#1110_0000#;  // 224
     X := 16#F.FF#E+2;   // 4095.0
     X := 2#1.1111_1111_111#E11; // 4095.0
+
     // failure test: bit string literal
     X := x"AFFE_Cafee"; // 'from_chars': Numerical result out of range
+
+    // failure test: base out of range
+    X := 99#9#; // FIXME error location indicator
 /*
-    // failure test
+    // other failure tests
     X := 2##;          // -> based literal real or integer type
     X := 3#011#;       // base not supported
     X := 2#120#1;      // wrong char set for binary

@@ -30,7 +30,7 @@ static inline auto const leaf_error_handlers = std::make_tuple(
         leaf::e_api_function const* api_fcn, leaf::e_fp_exception const* fp_exception,
         leaf::e_position_iterator<IteratorT> const* e_iter, leaf::e_error_trace const* e_trace) {
 
-        std::cerr << "LEAF handler #1 called.\n";
+        //std::cerr << "LEAF handler #1 called.\n";
         if(e_trace) {
             std::cerr << "LEAF exception trace:\n" << *e_trace;
         }
@@ -46,10 +46,10 @@ static inline auto const leaf_error_handlers = std::make_tuple(
         IteratorT iter = (e_iter) ? e_iter->value : parser_ctx.iter();
 
         leaf::throw_exception( // --
-            // FixMe This call results into ASAN error 'alloc_dealloc_mismatch' **solely and only** if 
-            // the combination Ubuntu, Clang with libc++ is used (`__wrap_iter` related, see ASAN log 
-            // [pastebin](https://pastebin.com/34tUBc8v)). The intent of this use case is to get 
-            // compile errors for non-owning macOS developer, but even macOS with Clang-13/libc++ isn't 
+            // FixMe This call results into ASAN error 'alloc_dealloc_mismatch' **solely and only** if
+            // the combination Ubuntu, Clang with libc++ is used (`__wrap_iter` related, see ASAN log
+            // [pastebin](https://pastebin.com/34tUBc8v)). The intent of this use case is to get
+            // compile errors for non-owning macOS developer, but even macOS with Clang-13/libc++ isn't
             // affected. The concept self works flawless, see [Godbolt](https://godbolt.org/z/nvsKdG9Yb)
             // even by use of `-std=c++20 -fsanitize=address,undefined -stdlib=libc++`
             convert::numeric_failure<IteratorT>(

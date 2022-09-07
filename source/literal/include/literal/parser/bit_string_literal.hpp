@@ -74,7 +74,7 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
             first = begin;
             return false;
         }
-
+#if defined(USE_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
@@ -84,6 +84,9 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
                 return true;
             },
             convert::leaf_error_handlers<IteratorT>);
+#else
+        return true;
+#endif
     }
 
 private:
