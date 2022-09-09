@@ -25,9 +25,24 @@ namespace x3 = boost::spirit::x3;
 
 namespace char_parser {
 
-// FixMe: [Misunderstanding repeat directive - it should fail, but doesn't](
+#if 0
+// FixMe: Limit digits, see [Misunderstanding repeat directive - it should fail, but doesn't](
 // https://stackoverflow.com/questions/72915071/misunderstanding-repeat-directive-it-should-fail-but-doesnt/72916318#72916318)
-// FixMe: Limit digits
+//auto const delimit_numeric_digits = []<typename T>(auto&& char_range, char const* name = "numeric digits" ) 
+static auto const delimit_numeric_digits = [](auto&& char_range, char const* name = "numeric digits" ) 
+{
+    using T = double;
+    auto constexpr max = std::numeric_limits<T>::max_digits10 * 2 - 1;
+    decltype(max) constexpr min = 0;
+    auto const chars = x3::char_(char_range);
+    // clang-format off
+    return x3::rule<struct _, std::string>{ name } = // x3::lexeme from outer rule
+           x3::raw[chars >> x3::repeat(min, max)[('_' >> +chars | chars)]]
+        >> !(chars | '_')
+    ;
+    // clang-format on
+};
+#else
 static auto const delimit_numeric_digits = [](auto&& char_range, char const* name = "numeric digits" ) {
     auto const chars = x3::char_(char_range);
     // clang-format off
@@ -35,6 +50,7 @@ static auto const delimit_numeric_digits = [](auto&& char_range, char const* nam
         x3::raw[chars >> *('_' >> +chars | chars)];
     // clang-format on
 };
+#endif
 
 static auto const bin_integer = delimit_numeric_digits("01", "binary digits");
 static auto const oct_integer = delimit_numeric_digits("0-7", "octal digits");
@@ -43,7 +59,7 @@ static auto const hex_integer = delimit_numeric_digits("0-9a-fA-F", "hexadecimal
 
 ///
 /// create charsets by any given base in range [2...36]
-/// concept [godbolt.org](https://godbolt.org/z/T5YEYhE54)
+/// concept [godbolt.org](https://godbolt.org/z/WTbsbW449)
 ///
 auto const based_charset = [](unsigned base) {
     using namespace std::string_view_literals;
@@ -69,6 +85,7 @@ auto const based_charset = [](unsigned base) {
     return ranges::to<std::string>(char_list | views::join);
 };
 
+// TODO move this specific to based_literal.hpp
 template <typename IteratorT>
 struct based_integer_parser {
     auto operator()(unsigned base, char const* name = "based integer") const

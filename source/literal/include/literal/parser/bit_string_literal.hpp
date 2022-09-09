@@ -53,7 +53,7 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
         }, "bit value");
 
         auto const bit_value = x3::rule<struct _, rule_type>{ "based digits" } =
-            x3::no_case[ -bit_value_parser ];
+            x3::no_case[ bit_value_parser ];
 
         auto const base_specifier = x3::rule<struct _, std::uint32_t>{ "base specifier" } =
             x3::no_case[ base_id ];
@@ -63,7 +63,7 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
             x3::with<rule_type>( rule_type{} )[
                 x3::lexeme[
                        &set_lazy<rule_type>[ bit_value ] >> base_specifier
-                    >> '"' >> do_lazy<rule_type> >> '"'
+                    >> '"' >> -do_lazy<rule_type> >> '"'
                 ]
             ];
         // clang-format on
@@ -71,10 +71,9 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
         if (!parse_ok) {
-            first = begin;
             return false;
         }
-#if defined(USE_CONVERT)
+#if defined(USE_IN_PARSER_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});

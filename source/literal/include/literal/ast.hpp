@@ -84,9 +84,11 @@ struct character_literal : x3::position_tagged {
 
 using enumeration_literal = variant<identifier, character_literal>;
 
-// using literal = variant<numeric_literal, enumeration_literal, string_literal,
-// bit_string_literal>;
-using literal = variant<abstract_literal, bit_string_literal>;
+struct string_literal : x3::position_tagged {
+    std::string literal;
+};
+
+using literal = variant<std::monostate, numeric_literal, enumeration_literal, string_literal, bit_string_literal, identifier>;
 using literals = std::vector<literal>;
 
 std::ostream& operator<<(std::ostream& os, ast::real_type const& real);
@@ -101,6 +103,7 @@ std::ostream& operator<<(std::ostream& os, ast::physical_literal const& literal)
 std::ostream& operator<<(std::ostream& os, ast::numeric_literal const& literal);
 std::ostream& operator<<(std::ostream& os, ast::character_literal const& literal);
 std::ostream& operator<<(std::ostream& os, ast::enumeration_literal const& literal);
+std::ostream& operator<<(std::ostream& os, ast::string_literal const& literal);
 
 }  // namespace ast
 
@@ -112,3 +115,4 @@ BOOST_FUSION_ADAPT_STRUCT(ast::bit_string_literal, base, literal)
 BOOST_FUSION_ADAPT_STRUCT(ast::identifier, name)
 BOOST_FUSION_ADAPT_STRUCT(ast::physical_literal, literal, unit_name)
 BOOST_FUSION_ADAPT_STRUCT(ast::character_literal, literal)
+BOOST_FUSION_ADAPT_STRUCT(ast::string_literal, literal)

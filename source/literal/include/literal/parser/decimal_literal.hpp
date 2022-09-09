@@ -77,13 +77,12 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
         if (!parse_ok) {
-            first = begin;
             return false;
         }
 
         attribute.base = 10U;  // decimal literal is always to the base of 10
 
-#if defined(USE_CONVERT)
+#if defined(USE_IN_PARSER_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
@@ -123,12 +122,12 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
         if (!parse_ok) {
-            first = begin;
             return false;
         }
 
         attribute.base = 10U;  // decimal literal has always base = 10
 
+#if defined(USE_IN_PARSER_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
@@ -138,6 +137,9 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
                 return true;
             },
             convert::leaf_error_handlers<IteratorT>);
+#else
+        return true;
+#endif
     }
 };
 
@@ -165,7 +167,6 @@ struct decimal_literal_parser : x3::parser<decimal_literal_parser> {
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
         if (!parse_ok) {
-            first = begin;
             return false;
         }
 

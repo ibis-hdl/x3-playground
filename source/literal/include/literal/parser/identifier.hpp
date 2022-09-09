@@ -14,15 +14,12 @@ namespace x3 = boost::spirit::x3;
 namespace detail {
 
 struct distinct_directive {
+
     template <typename Parser>
-    constexpr auto operator()(Parser&& parser) const
-    {
-        // clang-format off
+    constexpr auto operator()(Parser&& parser) const {
         return x3::lexeme[
-                   x3::no_case[ std::forward<Parser>(parser) ]
-                >> !(x3::iso8859_1::alnum | '_')
-            ];
-        // clang-format on
+            x3::no_case[ std::forward<Parser>(parser) ] >> !(x3::iso8859_1::alnum | '_')
+        ];
     }
 };
 
@@ -62,7 +59,7 @@ static auto const feasible_identifier =
     // clang-format on
 
 
-static auto const basic_identifier = x3::rule<struct _, std::string> { "basic identifier" } =
+static auto const basic_identifier = x3::rule<struct _, ast::identifier> { "basic identifier" } =
     feasible_identifier - keyword;
 
 } // end detail
@@ -70,5 +67,8 @@ static auto const basic_identifier = x3::rule<struct _, std::string> { "basic id
 static auto const identifier = detail::basic_identifier;
 
 static auto const primary_unit_name = identifier;
+
+// simplify keyword handling, no extra AST node
+static auto const NULL_ = x3::rule<struct _, ast::identifier> { "NULL" } = detail::distinct("null") >> x3::attr("kw:NULL");
 
 } // namespace parser

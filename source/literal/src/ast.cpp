@@ -26,6 +26,8 @@ struct formatter<std::optional<T>> : fmt::formatter<T> {
 
 namespace ast {
 
+bool constexpr print_node_name = true;
+
 std::ostream& operator<<(std::ostream& os, ast::real_type const& real)
 {
     fmt::print(os, "{}#{}.{}#", real.base, real.integer, real.fractional);
@@ -34,6 +36,10 @@ std::ostream& operator<<(std::ostream& os, ast::real_type const& real)
     }
     if (real.value) {
         fmt::print(os, " ({}r)", real.value.value());
+    }
+
+    if constexpr(print_node_name) {
+        fmt::print(os, " -> (real_type,");
     }
 
     return os;
@@ -49,6 +55,10 @@ std::ostream& operator<<(std::ostream& os, ast::integer_type const& int_)
         fmt::print(os, " ({}i)", int_.value.value());
     }
 
+    if constexpr(print_node_name) {
+        fmt::print(os, " -> (integer_type,");
+    }
+
     return os;
 }
 
@@ -59,6 +69,10 @@ std::ostream& operator<<(std::ostream& os, ast::based_literal const& literal)
         [&](ast::integer_type const& int_) { fmt::print(os, "{}", int_); }
     }, literal.num);
 
+    if constexpr(print_node_name) {
+        fmt::print(os, " based_literal)");
+    }
+
     return os;
 }
 
@@ -68,6 +82,10 @@ std::ostream& operator<<(std::ostream& os, ast::decimal_literal const& literal)
         [&](ast::real_type const& real) { fmt::print(os, "{}", real); },
         [&](ast::integer_type const& int_) { fmt::print(os, "{}", int_); }
     }, literal.num);
+
+    if constexpr(print_node_name) {
+        fmt::print(os, " decimal_literal)");
+    }
 
     return os;
 }
@@ -89,15 +107,9 @@ std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& litera
         fmt::print(os, " ({}d)", literal.value.value());
     }
 
-    return os;
-}
-
-std::ostream& operator<<(std::ostream& os, ast::literal const& literal)
-{
-    boost::apply_visitor(util::overloaded {
-        [&](ast::abstract_literal lit) { fmt::print(os, "{}", lit); },
-        [&](ast::bit_string_literal lit) { fmt::print(os, "{}", lit); }
-    }, literal);
+    if constexpr(print_node_name) {
+        fmt::print(os, " -> (bit_string_literal)");
+    }
 
     return os;
 }
@@ -105,12 +117,22 @@ std::ostream& operator<<(std::ostream& os, ast::literal const& literal)
 std::ostream& operator<<(std::ostream& os, ast::identifier const& int_)
 {
     fmt::print(os, "{}", int_.name);
+
+    if constexpr(print_node_name) {
+        fmt::print(os, " -> (identifier)");
+    }
+
     return os;
 }
 
 std::ostream& operator<<(std::ostream& os, ast::physical_literal const& literal)
 {
     fmt::print(os, "{} [{}]", literal.literal, literal.unit_name);
+
+    if constexpr(print_node_name) {
+        fmt::print(os, " -> (physical_literal)");
+    }
+
     return os;
 }
 
@@ -127,6 +149,11 @@ std::ostream& operator<<(std::ostream& os, ast::numeric_literal const& literal)
 std::ostream& operator<<(std::ostream& os, ast::character_literal const& literal)
 {
     fmt::print(os, "'{}'", literal.literal);
+
+    if constexpr(print_node_name) {
+        fmt::print(os, " -> (character_literal, ");
+    }
+
     return os;
 }
 
@@ -135,6 +162,40 @@ std::ostream& operator<<(std::ostream& os, ast::enumeration_literal const& liter
     boost::apply_visitor(util::overloaded {
         [&](ast::identifier ident) { fmt::print(os, "{}", ident); },
         [&](ast::character_literal lit) { fmt::print(os, "{}", lit); }
+    }, literal);
+
+    if constexpr(print_node_name) {
+        fmt::print(os, "enumeration_literal)");
+    }
+
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ast::string_literal const& literal)
+{
+    fmt::print(os, R"("{}")", literal.literal);
+
+    if constexpr(print_node_name) {
+        fmt::print(os, " -> (string_literal)");
+    }
+
+    return os;
+}
+
+std::ostream& operator<<(std::ostream& os, ast::literal const& literal)
+{
+    boost::apply_visitor(util::overloaded {
+#if 1
+        [&](auto&& lit) { fmt::print(os, "{}", lit); },
+        [&]([[maybe_unused]] std::monostate) { fmt::print(os, "monostate"); }
+#else
+        [&](ast::numeric_literal lit) { fmt::print(os, "{}", lit); },
+        [&](ast::enumeration_literal lit) { fmt::print(os, "{}", lit); },
+        [&](ast::string_literal lit) { fmt::print(os, "{}", lit); },
+        [&](ast::bit_string_literal lit) { fmt::print(os, "{}", lit); },
+        [&](ast::identifier lit) { fmt::print(os, "{}", lit); },
+        [&]([[maybe_unused]] std::monostate) { fmt::print(os, "monostate"); }
+#endif
     }, literal);
 
     return os;

@@ -62,7 +62,6 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
         bool const parse_ok = x3::parse(first, last, char_parser::dec_integer, base_literal_str);
 
         if (!parse_ok) {
-            first = begin;
             return false;
         }
 
@@ -117,11 +116,10 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
         if (!parse_ok) {
-            first = begin;
             return false;
         }
 
-#if defined(USE_CONVERT)
+#if defined(USE_IN_PARSER_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
@@ -156,17 +154,16 @@ struct based_real_parser : x3::parser<based_real_parser> {
         auto const based_integer = char_parser::based_integer<IteratorT>(attribute.base);
         using detail::signed_exp;
 
-        auto const grammar =  // use lexeme[] from outer parser
+        auto const grammar = // use lexeme[] from outer parser
             based_integer >> '.' >> x3::expect[based_integer] >> '#' >> -signed_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
         if (!parse_ok) {
-            first = begin;
             return false;
         }
 
-#if defined(USE_CONVERT)
+#if defined(USE_IN_PARSER_CONVERT)
         return leaf::try_catch(
             [&] {
                 auto load = leaf::on_error(leaf::e_x3_parser_context{*this, first, begin});
@@ -201,11 +198,15 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
         using detail::based_integer;
         using detail::based_real;
 
-        //std::cout << "based_literal_parser: '" <<std::string_view(first, first + 12) << "'\n";
+        //std::cout << "based_literal_parser: '" << detail::safe_sv(first,last) << "'\n";
 
-        auto const check_base = x3::rule<struct _>{ "valid base specifier" } = x3::eps[
-            ([&](auto&& ctx){
-                _pass(ctx) = valid_base(x3::get<based_integer_base_tag>(ctx));
+        auto const reasonable_base = x3::rule<struct _>{ "valid base specifier" } = x3::eps[
+            ([&](auto const& ctx){
+                auto const parsed_base = x3::get<based_integer_base_tag>(ctx);
+                auto const result = valid_base(parsed_base);
+                //std::cout << "based_literal_parser valid base: " << std::boolalpha << result << '\n';
+                _pass(ctx) = result;
+                return result;
             })];
 
         // This parser is tricky. The base of the literal determines the following, actual literal
@@ -213,13 +214,13 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
         // parser is stored in the (local) context and fetched later. In between is the check for a valid
         // base range.
 
-        // TODO The expect directive for valid base specifier works, but the error location indicator
-        // show to the (to late) iterator position. Hence the error message isn't such intuitive.
+        // FIXME The expect directive for valid base specifier works, but the error location indicator
+        // shows to the (too late) iterator position. Hence the error message isn't such intuitive.
 
         // clang-format off
         auto const grammar = x3::with<based_integer_base_tag>(unsigned{} /* base specifier */)[
             x3::lexeme[
-                based_base_specifier >> '#' >> x3::expect[ check_base ] >> (based_real | based_integer)
+                based_base_specifier >> '#' >> x3::expect[ reasonable_base ] >> (based_real | based_integer)
             ]
         ];
         // clang-format on
@@ -227,7 +228,7 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
         if (!parse_ok) {
-            first = begin;
+            //std::cout << "based_literal_parser failed\n";
             return false;
         }
 

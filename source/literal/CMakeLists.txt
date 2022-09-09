@@ -22,7 +22,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-  USE_CONVERT
+  #BOOST_SPIRIT_X3_DEBUG  # FIXME something is missing
+  #USE_IN_PARSER_CONVERT
   #USE_LEAF_ERROR_TRACE
 )
 
