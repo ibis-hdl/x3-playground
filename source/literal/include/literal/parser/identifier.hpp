@@ -53,7 +53,7 @@ static auto const feasible_identifier =
     // clang-format off
     x3::raw[ x3::lexeme [
            x3::alpha
-        >> !char_('"') // reject bit_string_literal
+        >> !x3::char_('"') // reject bit_string_literal
         >> *( x3::alnum | '_' )
     ]];
     // clang-format on

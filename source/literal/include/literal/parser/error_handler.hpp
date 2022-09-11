@@ -29,7 +29,8 @@ namespace detail {
 
 ///
 /// Get an excerpt as `string_view` of the iterator range and pay attention 
-/// to the iterator end to avoid reading from invalid memory ranges.
+/// to the iterator end to avoid reading from invalid memory ranges. Intended to be
+/// used during developing and debugging parser error strategies only.
 ///
 auto const excerpt_sv = [](auto first, auto last) {
     auto const sz = std::min(15U, static_cast<unsigned>(std::distance(first, last)));
@@ -41,7 +42,14 @@ auto const excerpt_sv = [](auto first, auto last) {
 ///
 /// The error message must have been previously reported.
 ///
-/// @note A simple search for a point of recovery, e.g.
+/// The concrete strategy depends on the used spirit rule (e.g. top level rule etc.).
+/// The selection of `x3::error_handler_result`depends on the concrete use case:
+/// - `accept` proceeds as if the current rule passed.
+/// - `retry` proceeds as if the current rule never started
+/// - `rethrow` as the name says, delegates the error to outer error handler.
+///
+/// @note A simple search for a point of recovery doesn't work due to comments in the
+///       input!, e.g.
 /// @code{.cpp}
 /// if (auto semicolon = std::find(first, last, ';'); semicolon == last) {
 ///     return x3::error_handler_result::fail;
@@ -50,7 +58,9 @@ auto const excerpt_sv = [](auto first, auto last) {
 ///     return x3::error_handler_result::retry;
 /// }
 /// @endcode 
-/// doesn't work due to comments in the input!
+///
+/// TODO implement RuleID-to-x3::error_handler_result mapping like 
+/// shown in concept https://godbolt.org/z/b5vdM5TKo
 ///
 template <typename RuleID, typename SymbolT>
 struct error_recovery_strategy {
@@ -59,8 +69,10 @@ struct error_recovery_strategy {
     : symbol{ symbol_ }
     {}
 
+    using result_type = std::tuple<bool, x3::error_handler_result>;
+
     template <typename It, typename Ctx>
-    bool operator()(It& first, It last, [[maybe_unused]] Ctx const& ctx) const {
+    result_type operator()(It& first, It last, [[maybe_unused]] Ctx const& ctx) const {
 
         auto constexpr verbose = false;
 
@@ -72,7 +84,7 @@ struct error_recovery_strategy {
             std::string skip_over_str;
             if(x3::parse(first, last, find_grammar, skip_over_str)) {
                 std::cout << "+++ recover skip: '" << skip_over_str << " ...'\n";
-                return true;
+                return { true, x3::error_handler_result::retry };
             }
         }
         else {
@@ -80,23 +92,28 @@ struct error_recovery_strategy {
                 +(x3::char_ - symbol) >> symbol
             ];
             if(x3::parse(first, last, find_grammar)) {
-                return true;
+                return { true, x3::error_handler_result::retry };
             }
         }
 
         // no way ...
-        return false;
+        return { false, x3::error_handler_result::fail };
     }
 
 private:
     SymbolT const symbol;
 };
 
+///
+/// Customization point for parser error recovery strategy.
+///
+/// @tparam RuleID The parer rule tag to be specialized.
+///
 template <typename RuleID>
 struct error_recovery {
 
     template <typename It, typename Ctx>
-    bool operator()(It& first, It last, Ctx const& ctx) const {
+    auto operator()(It& first, It last, Ctx const& ctx) const {
         return strategy(first, last, ctx);
     }
 
@@ -107,25 +124,26 @@ private:
 } // namespace detail
 
 ///
-/// syntactic sugar for specialized parser error recovery strategies.
+/// Syntactic sugar for specialized parser error recovery strategies.
 ///
 /// It's using error strategy customization points, for concept
 /// - https://godbolt.org/z/xrGqx557E
 /// - https://godbolt.org/z/65rrn5qKx (alternative (constexpr) approach)
 ///
 template <typename RuleID, typename It, typename Ctx>
-bool error_recovery(It& first, It last, Ctx const& ctx) {
+auto error_recovery(It& first, It last, Ctx const& ctx) {
     return detail::error_recovery<RuleID>{}(first, last, ctx);
 }
 
 /// 
-/// Customizable parser error handler to use different error recovery strategies
+/// Customizable parser error handler to use different error recovery strategies.
 /// 
 /// The general concept of taggable error handler is based on 
 /// [Custom error on rule level? #657](https://github.com/boostorg/spirit/issues/657)
-/// It is using several auxillary classes to try to recover from parser errors.
+/// and is using several auxillary specialized classes to try to recover from parser 
+/// errors, @see error_recovery.
 ///
-/// [Slack](https://cpplang.slack.com/archives/C27KZLB0X/p1662738072331189):
+/// Reference: [Slack](https://cpplang.slack.com/archives/C27KZLB0X/p1662738072331189):
 /// - @see https://godbolt.org/z/4qEfrP6GK (strong simplified, but works)
 /// - @see https://godbolt.org/z/W8GvrY1qv (Sehe's reduction)
 ///
@@ -166,14 +184,15 @@ struct my_x3_error_handler {  // try to recover and continue to parse
         auto const& error_handler = x3::get<x3::error_handler_tag>(ctx);
         error_handler(e.where(), error_message(e));
 
-        if(error_recovery<RuleID>(first, last, ctx)) {
+        auto const [proceed, error_handler_result] = error_recovery<RuleID>(first, last, ctx);
+        if(proceed) {
             if constexpr(verbose) {
-                // pre-skip, but it's more cosmetically
+                // pre-skip, but it's cosmetic
                 x3::skip_over(first, last, ctx);
                 std::cout << "+++ ignoring errors and continue with:\n'" 
                           << detail::excerpt_sv(first, last) << " ...'\n";
             }
-            return x3::error_handler_result::retry;
+            return error_handler_result;
         }
 
         if constexpr(verbose) {

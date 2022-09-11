@@ -28,21 +28,43 @@ namespace parser {
 namespace x3 = boost::spirit::x3;
 namespace leaf = boost::leaf;
 
+namespace detail {
+
 /// The Spirit X3 context tag for based integer literal's base specifier
 using based_integer_base_tag = struct {};
-
-/// Check, if a base is in range of [2 ... 36]
-/// These restrictions come from the limited ASCII charset respectively
-/// std::from_chars(), std::strtol() etc.
-inline bool valid_base(unsigned base) {
-    return (2U <= base && base <= 36U);
-}
 
 inline bool vhdl_supported_base(unsigned base) {
     return base == 2U || base == 8U || base == 10U || base == 16U;
 }
 
-namespace detail {
+template <typename IteratorT>
+struct based_digits_parser {
+    auto operator()(unsigned base, char const* name = "based integer") const
+    {
+        using namespace char_parser;
+
+        auto const as = [](auto&& parser) {
+            return x3::any_parser<IteratorT, std::string>{ x3::as_parser(parser) };
+        };
+
+        switch (base) {
+            case 2:
+                return as(bin_digits);
+            case 8:
+                return as(oct_digits);
+            case 10:
+                return as(dec_digits);
+            case 16:
+                return as(hex_digits);
+            default:
+                // any other base
+                return as(delimit_numeric_digits(based_charset(base), name));
+        }
+    }
+};
+
+template <typename IteratorT>
+static based_digits_parser<IteratorT> const base_digits = {};
 
 // BNF base ::= integer
 struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
@@ -59,7 +81,7 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
         auto const begin = first;
 
         std::string base_literal_str;
-        bool const parse_ok = x3::parse(first, last, char_parser::dec_integer, base_literal_str);
+        bool const parse_ok = x3::parse(first, last, char_parser::dec_digits, base_literal_str);
 
         if (!parse_ok) {
             return false;
@@ -79,7 +101,7 @@ struct based_base_specifier_parser : x3::parser<based_base_specifier_parser> {
                 auto const base_result =
                     convert::detail::as_integral_integer<unsigned>(base10, base_literal_str);
 
-                x3::get<based_integer_base_tag>(ctx) = base_result;
+                x3::get<detail::based_integer_base_tag>(ctx) = base_result;
 
                 // Note: here, no check for a valid base can take place, because this parser
                 // is called also for other rules due to parser alternatives (namely decimal literal).
@@ -105,9 +127,9 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
         auto const begin = first;
 
         // Note: the base has been initialized by outer rule before
-        attribute.base = x3::get<based_integer_base_tag>(ctx);
+        attribute.base = x3::get<detail::based_integer_base_tag>(ctx);
 
-        auto const based_integer = char_parser::based_integer<IteratorT>(attribute.base);
+        auto const based_integer = base_digits<IteratorT>(attribute.base);
         using detail::unsigned_exp;
 
         auto const grammar =  // use lexeme[] from outer parser
@@ -149,9 +171,9 @@ struct based_real_parser : x3::parser<based_real_parser> {
         auto const begin = first;
 
         // Note: the base has been initialized by outer rule before
-        attribute.base = x3::get<based_integer_base_tag>(ctx);
+        attribute.base = x3::get<detail::based_integer_base_tag>(ctx);
 
-        auto const based_integer = char_parser::based_integer<IteratorT>(attribute.base);
+        auto const based_integer = base_digits<IteratorT>(attribute.base);
         using detail::signed_exp;
 
         auto const grammar = // use lexeme[] from outer parser
@@ -202,8 +224,8 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
 
         auto const reasonable_base = x3::rule<struct _>{ "valid base specifier" } = x3::eps[
             ([&](auto const& ctx){
-                auto const parsed_base = x3::get<based_integer_base_tag>(ctx);
-                auto const result = valid_base(parsed_base);
+                auto const parsed_base = x3::get<detail::based_integer_base_tag>(ctx);
+                auto const result = char_parser::valid_base(parsed_base);
                 //std::cout << "based_literal_parser valid base: " << std::boolalpha << result << '\n';
                 _pass(ctx) = result;
                 return result;
@@ -218,7 +240,7 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
         // shows to the (too late) iterator position. Hence the error message isn't such intuitive.
 
         // clang-format off
-        auto const grammar = x3::with<based_integer_base_tag>(unsigned{} /* base specifier */)[
+        auto const grammar = x3::with<detail::based_integer_base_tag>(unsigned{} /* base specifier */)[
             x3::lexeme[
                 based_base_specifier >> '#' >> x3::expect[ reasonable_base ] >> (based_real | based_integer)
             ]

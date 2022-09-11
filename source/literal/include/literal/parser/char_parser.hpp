@@ -25,6 +25,13 @@ namespace x3 = boost::spirit::x3;
 
 namespace char_parser {
 
+/// Check, if a base is in range of [2 ... 36]
+/// These restrictions come from the limited ASCII charset respectively
+/// std::from_chars(), std::strtol() etc.
+inline bool valid_base(unsigned base) {
+    return (2U <= base && base <= 36U);
+}
+
 #if 0
 // FixMe: Limit digits, see [Misunderstanding repeat directive - it should fail, but doesn't](
 // https://stackoverflow.com/questions/72915071/misunderstanding-repeat-directive-it-should-fail-but-doesnt/72916318#72916318)
@@ -52,10 +59,10 @@ static auto const delimit_numeric_digits = [](auto&& char_range, char const* nam
 };
 #endif
 
-static auto const bin_integer = delimit_numeric_digits("01", "binary digits");
-static auto const oct_integer = delimit_numeric_digits("0-7", "octal digits");
-static auto const dec_integer = delimit_numeric_digits("0-9", "decimal digits");
-static auto const hex_integer = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
+static auto const bin_digits = delimit_numeric_digits("01", "binary digits");
+static auto const oct_digits = delimit_numeric_digits("0-7", "octal digits");
+static auto const dec_digits = delimit_numeric_digits("0-9", "decimal digits");
+static auto const hex_digits = delimit_numeric_digits("0-9a-fA-F", "hexadecimal digits");
 
 ///
 /// create charsets by any given base in range [2...36]
@@ -69,49 +76,21 @@ auto const based_charset = [](unsigned base) {
     static auto constexpr lower_letters = "abcdefghijklmnopqrstuvwxyz"sv;
     static auto constexpr upper_letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"sv;
 
-    static_assert(lower_letters.size() == upper_letters.size(), "");
+    // ensure up to 36 digits (10 digits + 26 letters)
     assert((2 <= base && base <= 36) && "Base must be in range [2, 36]");
 
     auto const dig_idx = base < digits.size() ? base : digits.size();
     auto const chr_idx = base > digits.size() ? base - dig_idx : 0;
 
-    // clang-format off
-    auto const char_list = {
-        std::string_view(digits.data(), dig_idx),
-        std::string_view(lower_letters.data(), chr_idx),
-        std::string_view(upper_letters.data(), chr_idx)
+    auto const char_list = {                                // --
+        std::string_view(digits.data(), dig_idx),           // --
+        std::string_view(lower_letters.data(), chr_idx),    // --
+        std::string_view(upper_letters.data(), chr_idx)     // -
     };
-    // clang-format on
+
     return ranges::to<std::string>(char_list | views::join);
 };
 
-// TODO move this specific to based_literal.hpp
-template <typename IteratorT>
-struct based_integer_parser {
-    auto operator()(unsigned base, char const* name = "based integer") const
-    {
-        auto const as = [](auto&& parser) {
-            return x3::any_parser<IteratorT, std::string>{ x3::as_parser(parser) };
-        };
-
-        switch (base) {
-            case 2:
-                return as(bin_integer);
-            case 8:
-                return as(oct_integer);
-            case 10:
-                return as(dec_integer);
-            case 16:
-                return as(hex_integer);
-            default:
-                // any other base
-                return as(delimit_numeric_digits(based_charset(base), name));
-        }
-    }
-};
-
-template <typename IteratorT>
-static based_integer_parser<IteratorT> const based_integer = {};
 
 #if 0 // unused
 namespace detail {
@@ -186,8 +165,6 @@ requires BasicBaseRange<Base>  // --
 
 }  // namespace detail
 #endif // unused
-
-// static auto const dec_charset = detail::based_charset_gen<10>();
 
 }  // namespace char_parser
 }  // namespace parser

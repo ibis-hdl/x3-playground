@@ -31,16 +31,15 @@ namespace leaf = boost::leaf;
 
 namespace detail {
 
-using char_parser::dec_integer;
-using x3::char_;
-
 // clang-format off
 auto const exponent = [](auto&& signs) {
+    using char_parser::dec_digits;
+    using x3::char_;
     using CharT = decltype(signs);
     return x3::rule<struct exponent_class, std::string>{ "exponent" } = x3::as_parser(
         x3::omit[ char_("Ee") ]
         >> x3::raw[ x3::lexeme [
-             -char_(std::forward<CharT>(signs)) >> dec_integer
+             -char_(std::forward<CharT>(signs)) >> dec_digits
         ]]
     );
 };
@@ -67,12 +66,12 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
         skip_over(first, last, ctx);
         auto const begin = first;
 
-        using char_parser::dec_integer;
+        using char_parser::dec_digits;
         using detail::unsigned_exp;
         using x3::lit;
 
         auto const grammar =  // use lexeme[] from outer parser; exclude based literal
-            dec_integer >> !lit('#') >> -unsigned_exp;
+            dec_digits >> !lit('#') >> -unsigned_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 
@@ -113,11 +112,11 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
         skip_over(first, last, ctx);
         auto const begin = first;
 
-        using char_parser::dec_integer;
+        using char_parser::dec_digits;
         using detail::signed_exp;
 
         auto const grammar =  // use lexeme[] from outer parser
-            dec_integer >> '.' >> x3::expect[dec_integer] >> -signed_exp;
+            dec_digits >> '.' >> x3::expect[dec_digits] >> -signed_exp;
 
         auto const parse_ok = x3::parse(first, last, grammar, attribute);
 

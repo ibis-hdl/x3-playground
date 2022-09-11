@@ -35,9 +35,9 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
                x3::unused_type, attribute_type& attribute) const
     {
         using rule_type = x3::any_parser<IteratorT, std::string>;
-        using char_parser::bin_integer;
-        using char_parser::hex_integer;
-        using char_parser::oct_integer;
+        using char_parser::bin_digits;
+        using char_parser::hex_digits;
+        using char_parser::oct_digits;
         using x3e::do_lazy;
         using x3e::set_lazy;
 
@@ -47,9 +47,9 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
 
         // clang-format off
         x3::symbols<rule_type> const bit_value_parser ({
-            {"b", bin_integer},
-            {"o", oct_integer},
-            {"x", hex_integer},
+            {"b", bin_digits},
+            {"o", oct_digits},
+            {"x", hex_digits},
         }, "bit value");
 
         auto const bit_value = x3::rule<struct _, rule_type>{ "based digits" } =
