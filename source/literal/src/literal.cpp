@@ -10,6 +10,7 @@
 #include <literal/parser/identifier.hpp>
 #include <literal/parser/comment.hpp>
 #include <literal/parser/error_handler.hpp>
+#include <literal/parser/parser_id.hpp>
 
 #include <boost/spirit/home/x3.hpp>
 #include <boost/spirit/home/x3/support/ast/position_tagged.hpp>
@@ -27,20 +28,12 @@ namespace x3 = boost::spirit::x3;
 
 namespace {
 
-// TODO: Check on useability of 
+// TODO: Check on useability of
 // [How do I get which() to work correctly in boost spirit x3 expectation_failure?](
 // https://stackoverflow.com/questions/71281614/how-do-i-get-which-to-work-correctly-in-boost-spirit-x3-expectation-failure)
 // The compile problem rises with my_x3_error_handler::id() member function which
 // requires full defined types to print just this one! The my_x3_error_handler
 // here is templated.
-
-struct based_literal_class : parser::my_x3_error_handler<based_literal_class> {};
-struct decimal_literal_class : parser::my_x3_error_handler<decimal_literal_class> {};
-struct bit_string_literal_class : parser::my_x3_error_handler<bit_string_literal_class> {};
-struct character_literal_class : parser::my_x3_error_handler<character_literal_class> {};
-struct string_literal_class : parser::my_x3_error_handler<string_literal_class> {};
-struct literal_rule_class : parser::my_x3_error_handler<literal_rule_class> {};
-struct grammar_class : parser::my_x3_error_handler<grammar_class> {};
 
 // clang-format off
 
@@ -116,7 +109,7 @@ auto const literal = x3::rule<struct literal_class, ast::literal>{ "literal" } =
     parser::NULL_ | enumeration_literal | string_literal | parser::bit_string_literal | numeric_literal
     ;
 
-auto const literal_rule = x3::rule<literal_rule_class, ast::literal>{ "literal" } = 
+auto const literal_rule = x3::rule<literal_rule_class, ast::literal>{ "literal" } =
     x3::eps > "X" > ":=" > literal > ';'
     ;
 
@@ -135,6 +128,8 @@ using my_x3_error_handler = parser::my_x3_error_handler<RuleID>;
 
 int main()
 {
+    std::ios_base::sync_with_stdio(false);
+
     using namespace ast;
 
     std::string const input = R"(
@@ -175,12 +170,12 @@ int main()
     X := '*';
     X := ''';
     X := ' ';
-    X := '';            // ERROR: empty char literal is *not* allowed
+    X := '';            // empty char literal is *not* allowed
 
     // numeric/physical literal
     X := 10.7 ns;       // decimal (real)
     X := 42 us;         // decimal (real)
-    X := 10#42#E4 kg;   // based literal    
+    X := 10#42#E4 kg;   // based literal
 
     // mixed types from LRM93
     X := 2#1111_1111#;  // 255

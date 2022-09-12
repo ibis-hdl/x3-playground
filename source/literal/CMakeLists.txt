@@ -13,6 +13,7 @@ target_sources(${PROJECT_NAME} PRIVATE
   src/ast.cpp
   src/convert.cpp
   src/leaf_errors.cpp
+  src/error_handler.cpp
 )
 
 target_link_libraries(${PROJECT_NAME} PRIVATE

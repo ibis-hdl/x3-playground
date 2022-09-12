@@ -9,6 +9,8 @@
 
 namespace parser {
 
+namespace x3 = boost::spirit::x3;
+
 static auto const c_style_comments = "/*" >> x3::lexeme[*(x3::char_ - "*/")] >> "*/";
 static auto const cpp_style_comment = "//" >> *~x3::char_("\r\n");
 static auto const comment = cpp_style_comment | c_style_comments;
