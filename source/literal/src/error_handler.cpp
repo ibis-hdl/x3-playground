@@ -16,28 +16,7 @@
 
 namespace x3 = boost::spirit::x3;
 
-template <> struct fmt::formatter<x3::error_handler_result> {
-  constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-    return ctx.begin();
-  }
-  template <typename FormatContext>
-  auto format(x3::error_handler_result result, FormatContext& ctx) const -> decltype(ctx.out()) {
-
-    switch(result) {
-        case x3::error_handler_result::accept:
-            return fmt::format_to(ctx.out(), "{}", "accept");
-        case x3::error_handler_result::retry:
-            return fmt::format_to(ctx.out(), "{}", "retry");
-        case x3::error_handler_result::rethrow:
-            return fmt::format_to(ctx.out(), "{}", "rethrow");
-        case x3::error_handler_result::fail:
-            return fmt::format_to(ctx.out(), "{}", "fail");
-        default:
-            abort();
-    }
-    return ctx.out();
-  }
-};
+template <> struct fmt::formatter<x3::error_handler_result>;
 
 namespace parser {
 
@@ -138,3 +117,30 @@ error_recovery_strategy_map::lookup_result error_recovery_strategy_map::lookup(s
 } // namespace detail
 
 } // namespace parser
+
+//
+// {fmt} lib formatter
+// 
+
+template <> struct fmt::formatter<x3::error_handler_result> {
+
+  constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+    return ctx.begin();
+  }
+  
+  template <typename FormatContext>
+  auto format(x3::error_handler_result result, FormatContext& ctx) const -> decltype(ctx.out()) {
+
+    switch(result) {
+        case x3::error_handler_result::accept:
+            return fmt::format_to(ctx.out(), "{}", "accept");
+        case x3::error_handler_result::retry:
+            return fmt::format_to(ctx.out(), "{}", "retry");
+        case x3::error_handler_result::rethrow:
+            return fmt::format_to(ctx.out(), "{}", "rethrow");
+        case x3::error_handler_result::fail:
+            return fmt::format_to(ctx.out(), "{}", "fail");
+    }
+    return ctx.out();
+  }
+};

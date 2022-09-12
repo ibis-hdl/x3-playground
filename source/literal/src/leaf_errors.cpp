@@ -18,17 +18,7 @@
 #include <range/v3/view/transform.hpp>
 #include <range/v3/view/reverse.hpp>
 
-template <> struct fmt::formatter<boost::leaf::e_error_trace::record> {
-    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
-        return ctx.begin();
-    }
-
-    template <typename FormatContext>
-    auto format(boost::leaf::e_error_trace::record const& rec, FormatContext& ctx) const -> decltype(ctx.out()) {
-        fmt::format_to(ctx.out(), "{}({})", rec.file, rec.line);
-        return ctx.out();
-    }
-};
+template <> struct fmt::formatter<boost::leaf::e_error_trace::record>;
 
 namespace boost::leaf {
 
@@ -86,3 +76,20 @@ std::ostream& operator<<(std::ostream& os, e_error_trace const& trace)
 }
 
 }  // namespace boost::leaf
+
+//
+// {fmt} lib formatter
+// 
+
+template <> struct fmt::formatter<boost::leaf::e_error_trace::record> {
+    
+    constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
+        return ctx.begin();
+    }
+
+    template <typename FormatContext>
+    auto format(boost::leaf::e_error_trace::record const& rec, FormatContext& ctx) const -> decltype(ctx.out()) {
+        fmt::format_to(ctx.out(), "{}({})", rec.file, rec.line);
+        return ctx.out();
+    }
+};

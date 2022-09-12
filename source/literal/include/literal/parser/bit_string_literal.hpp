@@ -43,8 +43,6 @@ struct bit_string_literal_parser : x3::parser<bit_string_literal_parser> {
 
         skip_over(first, last, ctx);
 
-        auto const begin = first;
-
         // clang-format off
         x3::symbols<rule_type> const bit_value_parser ({
             {"b", bin_digits},

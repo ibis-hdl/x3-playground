@@ -7,10 +7,8 @@
 #include <iostream>
 #include <iomanip>
 
-namespace fmt {
-
 template <typename T>
-struct formatter<std::optional<T>> : fmt::formatter<T> {
+struct fmt::formatter<std::optional<T>> : fmt::formatter<T> {
     template <typename FormatContext>
     auto format(const std::optional<T>& opt, FormatContext& ctx)
     {
@@ -21,8 +19,6 @@ struct formatter<std::optional<T>> : fmt::formatter<T> {
         return fmt::format_to(ctx.out(), "N/A");
     }
 };
-
-}  // namespace fmt
 
 namespace ast {
 

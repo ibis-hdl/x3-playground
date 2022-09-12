@@ -38,8 +38,12 @@ static bool constexpr verbose_error_handler = true;
 /// used during developing and debugging parser error strategies only.
 ///
 auto const excerpt_sv = [](auto first, auto last) {
-    auto const sz = std::min(25U, static_cast<unsigned>(std::distance(first, last)));
+    std::size_t const sz = std::min(25U, static_cast<unsigned>(std::distance(first, last)));
+#if _LIBCPP_VERSION == 13000    
+    return (first == last) ? "<eoi>" : std::string_view(&*first, sz);
+#else
     return (first == last) ? "<eoi>" : std::string_view{first, first + sz};
+#endif
 };
 
 struct error_recovery_strategy_map {

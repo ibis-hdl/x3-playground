@@ -226,7 +226,11 @@ int main()
             }
         }
         if(iter != end) {
+#if _LIBCPP_VERSION == 13000
+            std::cout << "Remaining: " << std::quoted(std::string{iter, end}) << "\n";
+#else
             std::cout << "Remaining: " << std::quoted(std::string_view{iter, end}) << "\n";
+#endif            
         }
     }
     catch (std::exception const& e) {

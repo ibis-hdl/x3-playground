@@ -64,7 +64,6 @@ struct decimal_integer_parser : x3::parser<decimal_integer_parser> {
         LEAF_ERROR_TRACE;
 
         skip_over(first, last, ctx);
-        auto const begin = first;
 
         using char_parser::dec_digits;
         using detail::unsigned_exp;
@@ -110,7 +109,6 @@ struct decimal_real_parser : x3::parser<decimal_real_parser> {
         LEAF_ERROR_TRACE;
 
         skip_over(first, last, ctx);
-        auto const begin = first;
 
         using char_parser::dec_digits;
         using detail::signed_exp;
@@ -155,8 +153,6 @@ struct decimal_literal_parser : x3::parser<decimal_literal_parser> {
                x3::unused_type, attribute_type& attribute) const
     {
         skip_over(first, last, ctx);
-
-        auto const begin = first;
 
         using detail::decimal_integer;
         using detail::decimal_real;

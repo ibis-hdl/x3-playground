@@ -124,8 +124,6 @@ struct based_integer_parser : x3::parser<based_integer_parser> {
     {
         LEAF_ERROR_TRACE;
 
-        auto const begin = first;
-
         // Note: the base has been initialized by outer rule before
         attribute.base = x3::get<detail::based_integer_base_tag>(ctx);
 
@@ -167,8 +165,6 @@ struct based_real_parser : x3::parser<based_real_parser> {
                attribute_type& attribute) const
     {
         LEAF_ERROR_TRACE;
-
-        auto const begin = first;
 
         // Note: the base has been initialized by outer rule before
         attribute.base = x3::get<detail::based_integer_base_tag>(ctx);
@@ -214,7 +210,6 @@ struct based_literal_parser : x3::parser<based_literal_parser> {
                attribute_type& attribute) const
     {
         skip_over(first, last, ctx);
-        auto const begin = first;
 
         using detail::based_base_specifier;
         using detail::based_integer;
