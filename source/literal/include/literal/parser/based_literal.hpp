@@ -48,6 +48,7 @@ struct based_digits_parser {
         };
 
         switch (base) {
+            // NOLINTNEXTLINE(bugprone-branch-clone)
             case 2:
                 return as(bin_digits);
             case 8:

@@ -7,6 +7,8 @@
 
 #include <type_traits>
 
+// TODO rename to concept types
+
 // Note from [cpplang slack *concept* channel](
 // https://cpplang.slack.com/archives/C6K47F8TT/p1655242903316339) "std integral is just
 // the set of fundamental integer types, no library type is able to model the concept. " ... "Looks

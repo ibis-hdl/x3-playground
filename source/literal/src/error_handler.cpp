@@ -23,7 +23,7 @@ namespace parser {
 namespace detail {
 
 error_recovery_common_strategy::result_type
-error_recovery_common_strategy::call(iterator_type& first, iterator_type last, 
+error_recovery_common_strategy::call(iterator_type& first, iterator_type last,
                                      error_recovery_strategy_map::lookup_result const& recovery_aux)
 {
     auto& os = std::cout;
@@ -34,10 +34,10 @@ error_recovery_common_strategy::call(iterator_type& first, iterator_type last,
         static auto const find_grammar = x3::skip(x3::space | parser::comment)[
             x3::lexeme[ +(x3::char_ - symbol) >> x3::char_(symbol) ]
         ];
-        os << fmt::format("+++ recover in: {} ...\n", excerpt_sv(first, last));
+        os << fmt::format("+++ recover in: |{} ...|\n", excerpt_sv(first, last));
         std::string skip_over_str;
         if(x3::parse(first, last, find_grammar, skip_over_str)) {
-            os << fmt::format("+++ recover skip: {} ...\n", skip_over_str);
+            os << fmt::format("+++ recover skip: |{} ...|\n", skip_over_str);
             return { true, recovery_aux.handler_result };
         }
     }
@@ -120,14 +120,14 @@ error_recovery_strategy_map::lookup_result error_recovery_strategy_map::lookup(s
 
 //
 // {fmt} lib formatter
-// 
+//
 
 template <> struct fmt::formatter<x3::error_handler_result> {
 
   constexpr auto parse(format_parse_context& ctx) -> decltype(ctx.begin()) {
     return ctx.begin();
   }
-  
+
   template <typename FormatContext>
   auto format(x3::error_handler_result result, FormatContext& ctx) const -> decltype(ctx.out()) {
 

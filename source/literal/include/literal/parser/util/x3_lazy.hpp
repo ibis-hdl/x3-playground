@@ -13,9 +13,10 @@ namespace x3 = boost::spirit::x3;
 
 namespace detail {
 
-// [Boost spirit x3 - lazy parser with compile time known parsers, referring to a previously matched
-// value](
+// [Boost spirit x3 - lazy parser with compile time known parsers, referring to a previously matched value](
 //  https://stackoverflow.com/questions/72833517/boost-spirit-x3-lazy-parser-with-compile-time-known-parsers-referring-to-a-pr)
+// [Boost spirit x3 - lazy parser](
+//  https://stackoverflow.com/questions/60171119/boost-spirit-x3-lazy-parser/60176802#60176802)
 
 template <typename...>
 struct Tag {

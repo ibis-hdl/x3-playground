@@ -8,6 +8,7 @@
 #include <literal/parser/bit_string_literal.hpp>
 #include <literal/parser/based_literal.hpp>
 #include <literal/parser/identifier.hpp>
+#include <literal/parser/string_literal.hpp>
 #include <literal/parser/comment.hpp>
 #include <literal/parser/error_handler.hpp>
 #include <literal/parser/parser_id.hpp>
@@ -26,24 +27,9 @@
 
 namespace x3 = boost::spirit::x3;
 
-namespace {
-
-// TODO: Check on useability of
-// [How do I get which() to work correctly in boost spirit x3 expectation_failure?](
-// https://stackoverflow.com/questions/71281614/how-do-i-get-which-to-work-correctly-in-boost-spirit-x3-expectation-failure)
-// The compile problem rises with my_x3_error_handler::id() member function which
-// requires full defined types to print just this one! The my_x3_error_handler
-// here is templated.
+namespace parser {
 
 // clang-format off
-
-// BNF: based_literal := base # based_integer [ . based_integer ] # [ exponent ]
-auto const based_literal = x3::rule<based_literal_class, ast::based_literal>{ "based literal" } =
-    parser::based_literal;
-
-// BNF: decimal_literal := integer [ . integer ] [ exponent ]
-auto const decimal_literal = x3::rule<decimal_literal_class, ast::decimal_literal>{ "decimal literal" } =
-    parser::decimal_literal;
 
 // BNF: abstract_literal ::= decimal_literal | based_literal
 // Note: {decimal, based}_literal's AST nodes does have same memory layout!
@@ -58,9 +44,9 @@ auto const unit_name = x3::rule<struct unit_name_class, std::string>{ "unit name
     ;
 
 // BNF: physical_literal ::= [ abstract_literal ] unit_name
-// ATTENTION: In the BNF, the abstract_literal is optional. This results in a stand-alone
-// unit_name, with the result of the default constructed based_literal (with base = 0) with
-// any unit_name, such as NULL (the keyword).
+// ATTENTION:In the BNF, the abstract_literal is optional. This may lead to a standalone
+// unit_name, with a default-constructed abstract_literal or more concrete based_literal
+// (and with base = 0) and an arbitrary unit_name - depending on the following lexemes.
 // This must be taken into account when implementing the secondary_unit_declaration!
 auto const physical_literal = x3::rule<struct physical_literal_class, ast::physical_literal>{ "physical literal" } =
     abstract_literal >> unit_name;
@@ -71,8 +57,6 @@ auto const numeric_literal = x3::rule<struct numeric_literal_class, ast::numeric
     physical_literal | abstract_literal // order matters
     ;
 
-auto const graphic_character = x3::graph | x3::space;
-
 // BNF: character_literal ::= ' graphic_character '
 auto const character_literal = x3::rule<character_literal_class, ast::character_literal>{ "character literal" } =
     x3::lexeme ["\'" >> x3::expect[( graphic_character - "\'" ) | x3::char_("\'")] >> "\'" ]
@@ -80,33 +64,12 @@ auto const character_literal = x3::rule<character_literal_class, ast::character_
 
 // BNF: enumeration_literal ::= identifier | character_literal
 auto const enumeration_literal = x3::rule<struct enumeration_literal_class, ast::enumeration_literal>{ "enumeration literal" } =
-    parser::identifier | character_literal
+    identifier | character_literal
     ;
-
-// BNF: string_literal ::= " { graphic_character } "
-namespace detail {
-auto const string_literal_charset = [](char delim) {
-    return x3::rule<struct _, std::string>{ "string literal charset" } =
-    *(   ( graphic_character - x3::char_(delim)  )
-       | ( x3::char_(delim) >> x3::char_(delim) )
-    )
-    ;
-};
-auto const string_literal = [](char delim) {
-    return x3::rule<struct _, std::string>{ "string literal" } =
-        x3::lit(delim) >> x3::raw[string_literal_charset(delim)] >> x3::lit(delim)
-    ;
-};
-} // namespace detail
-
-auto const string_literal = x3::rule<string_literal_class, ast::string_literal>{ "string literal" } =
-    x3::lexeme [
-           detail::string_literal('"') | detail::string_literal('%')
-    ];
 
 // BNF: literal ::= numeric_literal | enumeration_literal | string_literal | bit_string_literal | null
 auto const literal = x3::rule<struct literal_class, ast::literal>{ "literal" } = // order matters
-    parser::NULL_ | enumeration_literal | string_literal | parser::bit_string_literal | numeric_literal
+    NULL_ | enumeration_literal | string_literal | bit_string_literal | numeric_literal
     ;
 
 auto const literal_rule = x3::rule<literal_rule_class, ast::literal>{ "literal" } =
@@ -114,17 +77,13 @@ auto const literal_rule = x3::rule<literal_rule_class, ast::literal>{ "literal" 
     ;
 
 auto const grammar = x3::rule<grammar_class, ast::literals>{ "grammar" } =
-    x3::skip(x3::space | parser::comment)[
+    x3::skip(x3::space | comment)[
         *literal_rule >> x3::eoi
     ];
 
-template<typename RuleID>
-using my_x3_error_handler = parser::my_x3_error_handler<RuleID>;
-
-
 // clang-format on
 
-}  // namespace
+}  // namespace parser
 
 int main()
 {
@@ -213,10 +172,10 @@ int main()
         using error_handler_type = x3::error_handler<decltype(input.begin())>;
         error_handler_type error_handler(input.begin(), end, std::cerr, "input");
 
-        auto const grammar_ = x3::with<x3::error_handler_tag>(error_handler)[grammar];
+        auto const grammar = x3::with<x3::error_handler_tag>(error_handler)[parser::grammar];
 
         ast::literals literals;
-        bool parse_ok = x3::parse(iter, end, grammar_, literals);
+        bool parse_ok = x3::parse(iter, end, grammar, literals);
 
         std::cout << fmt::format("parse success: {}\n", parse_ok);
         if(!literals.empty()) {
@@ -226,11 +185,11 @@ int main()
             }
         }
         if(iter != end) {
-#if _LIBCPP_VERSION == 13000
+#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION == 13000
             std::cout << "Remaining: " << std::quoted(std::string{iter, end}) << "\n";
 #else
             std::cout << "Remaining: " << std::quoted(std::string_view{iter, end}) << "\n";
-#endif            
+#endif
         }
     }
     catch (std::exception const& e) {
@@ -241,15 +200,5 @@ int main()
     }
 }
 
-// https://stackoverflow.com/search?q=user%3A85371+x3+parser_base
 // https://stackoverflow.com/questions/49722452/combining-rules-at-runtime-and-returning-rules/49722855#49722855
-
-/*
- stateful context x3::width[]
-
-[Boost spirit x3 - lazy
-parser](https://stackoverflow.com/questions/60171119/boost-spirit-x3-lazy-parser/60176802#60176802)
-[Boost Spirit X3 cannot compile repeat directive with variable
-factor](https://stackoverflow.com/questions/33624149/boost-spirit-x3-cannot-compile-repeat-directive-with-variable-factor/33627991#33627991)
-=> https://coliru.stacked-crooked.com/a/f778d7b2e11cfcb5
-*/
+// https://stackoverflow.com/questions/71281614/how-do-i-get-which-to-work-correctly-in-boost-spirit-x3-expectation-failure

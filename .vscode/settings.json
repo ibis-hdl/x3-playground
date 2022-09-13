@@ -116,7 +116,9 @@
     "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
     "cSpell.words": [
         "ASAN",
-        "Coliru"
+        "bugprone",
+        "Coliru",
+        "NOLINTNEXTLINE"
     ],
     "cSpell.ignoreRegExpList": [
         "@\\w+"

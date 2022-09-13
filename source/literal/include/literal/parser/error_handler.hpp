@@ -13,8 +13,6 @@
 #include <boost/spirit/home/x3/support/utility/error_reporting.hpp>
 #include <boost/spirit/home/x3/support/utility/annotate_on_success.hpp>
 
-#include <boost/type_index.hpp>
-
 #include <fmt/format.h>
 
 #include <string_view>
@@ -39,7 +37,7 @@ static bool constexpr verbose_error_handler = true;
 ///
 auto const excerpt_sv = [](auto first, auto last) {
     std::size_t const sz = std::min(25U, static_cast<unsigned>(std::distance(first, last)));
-#if _LIBCPP_VERSION == 13000    
+#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION == 13000
     return (first == last) ? "<eoi>" : std::string_view(&*first, sz);
 #else
     return (first == last) ? "<eoi>" : std::string_view{first, first + sz};
@@ -63,8 +61,8 @@ struct error_recovery_common_strategy {
 
     using result_type = std::tuple<bool, x3::error_handler_result>;
     using iterator_type = std::string::const_iterator;
-    
-    static result_type call(iterator_type& first, iterator_type last, 
+
+    static result_type call(iterator_type& first, iterator_type last,
                             error_recovery_strategy_map::lookup_result const& recovery_aux);
 };
 
@@ -99,7 +97,7 @@ struct error_recovery_strategy {
 
     template <typename It, typename Ctx>
     result_type operator()(It& first, It last, [[maybe_unused]] Ctx const& ctx) const {
-        return error_recovery_common_strategy::call(first, last, 
+        return error_recovery_common_strategy::call(first, last,
             error_recovery_strategy_aux<RuleID>());
     }
 };
@@ -142,7 +140,7 @@ struct my_x3_error_handler {
         auto& os = std::cout;
 
         if constexpr(verbose_error_handler) {
-            os << fmt::format(">>> error handler for RuleID: <{}> <<<\n", id());
+            os << fmt::format("*** error handler <{}> ***\n", id());
         }
 
         // This `on_error` catches the `x3::expectation_failure` exceptions and the exceptions
@@ -174,8 +172,8 @@ struct my_x3_error_handler {
             if constexpr(verbose_error_handler) {
                 // pre-skip, but it's cosmetic
                 x3::skip_over(first, last, ctx);
-                os << "+++ ignoring errors and continue with:\n'"
-                   << detail::excerpt_sv(first, last) << " ...'\n";
+                os << "+++ ignoring errors and continue with:\n|"
+                   << detail::excerpt_sv(first, last) << " ...|\n";
             }
             return error_handler_result;
         }
@@ -191,8 +189,10 @@ protected:
     ~my_x3_error_handler() = default;
 
 private:
+    /// RuleID name string, in the same format as map key entries in error recovery
+    /// strategy map, @see error_recovery_strategy_map
     static std::string id() {
-        return boost::core::demangle(typeid(RuleID).name());
+        return std::type_index(typeid(RuleID)).name();
     }
 
 };

@@ -144,7 +144,7 @@ std::ostream& operator<<(std::ostream& os, ast::numeric_literal const& literal)
 
 std::ostream& operator<<(std::ostream& os, ast::character_literal const& literal)
 {
-    fmt::print(os, "'{}'", literal.literal);
+    fmt::print(os, R"("{}")", literal.literal);
 
     if constexpr(print_node_name) {
         fmt::print(os, " -> (character_literal, ");
@@ -169,7 +169,7 @@ std::ostream& operator<<(std::ostream& os, ast::enumeration_literal const& liter
 
 std::ostream& operator<<(std::ostream& os, ast::string_literal const& literal)
 {
-    fmt::print(os, R"("{}")", literal.literal);
+    fmt::print(os, R"('{}')", literal.literal);
 
     if constexpr(print_node_name) {
         fmt::print(os, " -> (string_literal)");

@@ -80,6 +80,4 @@ target_include_directories(
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
 )
 
-add_test(NAME test_literal
-    COMMAND ${PROJECT_NAME}
-)
+add_subdirectory(test)
