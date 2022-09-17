@@ -69,7 +69,6 @@ static auto constexpr rule_id() { return detail::type<TagT>.id; };
 
 error_recovery_strategy_map::lookup_result error_recovery_strategy_map::lookup(std::type_index id)
 {
-    auto constexpr verbose = true;
     auto& os = std::cout;
 
     using x3::error_handler_result::accept;
@@ -99,14 +98,14 @@ error_recovery_strategy_map::lookup_result error_recovery_strategy_map::lookup(s
     auto const search = rule_id_results.find(id);
 
     if (search != rule_id_results.end()) {
-        if constexpr(verbose) {
+        if constexpr(verbose_error_handler) {
             fmt::print(os, "+++ recovery RuleID '{}' -> {}\n",
                     search->first.name(), search->second.handler_result);
         }
         return search->second;
     }
 
-    if constexpr(verbose) {
+    if constexpr(verbose_error_handler) {
         fmt::print(os, "+++ recovery RuleID '{}' -> {} (default)\n",
                    id.name(), default_result.handler_result);
     }

@@ -177,7 +177,7 @@ int main()
         ast::literals literals;
         bool parse_ok = x3::parse(iter, end, grammar, literals);
 
-        std::cout << fmt::format("parse success: {}\n", parse_ok);
+        std::cout << fmt::format("parse success: {}, {} error(s)\n", parse_ok, parser::error_count);
         if(!literals.empty()) {
             std::cout << "numeric literals:\n";
             for (auto const& lit : literals) {
@@ -199,6 +199,3 @@ int main()
         std::cerr << "caught in main() 'Unexpected exception'\n";
     }
 }
-
-// https://stackoverflow.com/questions/49722452/combining-rules-at-runtime-and-returning-rules/49722855#49722855
-// https://stackoverflow.com/questions/71281614/how-do-i-get-which-to-work-correctly-in-boost-spirit-x3-expectation-failure

@@ -1,0 +1,56 @@
+digraph name  {
+
+  abstract_literal -> decimal_literal;
+  abstract_literal -> based_literal;
+
+  enumeration_literal -> identifier;
+  enumeration_literal -> character_literal;
+
+  literal -> numeric_literal;
+  literal -> enumeration_literal;
+  literal -> string_literal;
+  literal -> bit_string_literal;
+  literal -> NULL;
+
+  numeric_literal -> abstract_literal;
+  numeric_literal -> physical_literal;
+
+  operator_symbol -> string_literal[label="alias",style=dotted];
+  simple_name -> identifier[label="alias",style=dotted];
+
+  alias_designator[shape=box,style=filled,color="darkgoldenrod1"];
+  alias_designator -> identifier;
+  alias_designator -> character_literal;
+  alias_designator -> operator_symbol;
+
+  entity_tag[shape=box,style=filled,color="darkgoldenrod1"];
+  entity_tag -> simple_name;
+  entity_tag -> character_literal;
+  entity_tag -> operator_symbol;
+
+  enumeration_type_definition[shape=box,style=filled,color="darkgoldenrod1"];
+  enumeration_type_definition -> enumeration_literal;
+
+  group_constituent[shape=box,style=filled,color="darkgoldenrod1"];
+  group_constituent -> character_literal;
+
+  primary[shape=box,style=filled,color="darkgoldenrod1"];
+	primary -> name;
+	primary -> literal;
+
+  physical_literal;
+  physical_literal -> abstract_literal;
+  physical_literal -> unit_name;
+
+  secondary_unit_declaration[shape=box,style=filled,color="darkgoldenrod1"];
+  secondary_unit_declaration ->	identifier;
+  secondary_unit_declaration ->physical_literal;
+
+  suffix[shape=box,style=filled,color="darkgoldenrod1"];
+  suffix -> simple_name;
+  suffix -> character_literal;
+  suffix -> operator_symbol;
+  suffix -> ALL;
+
+}
+

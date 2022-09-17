@@ -110,12 +110,13 @@ std::ostream& operator<<(std::ostream& os, ast::bit_string_literal const& litera
     return os;
 }
 
-std::ostream& operator<<(std::ostream& os, ast::identifier const& int_)
+std::ostream& operator<<(std::ostream& os, ast::identifier const& ident)
 {
-    fmt::print(os, "{}", int_.name);
+    fmt::print(os, "{}", ident.name);
 
     if constexpr(print_node_name) {
-        fmt::print(os, " -> (identifier)");
+        // Ternary operator for keyword "hack" of NULL
+        fmt::print(os, " -> (identifier{}", ident.name.starts_with("kw:") ? ")" : ", ");
     }
 
     return os;

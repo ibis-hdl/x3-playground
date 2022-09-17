@@ -6,17 +6,18 @@ find_package(fmt 8.1.1 REQUIRED)
 find_package(range-v3 0.11.0 REQUIRED)
 find_package(Threads REQUIRED)
 
-add_executable(${PROJECT_NAME})
+add_library(${PROJECT_NAME})
+add_library(x3playground::literal ALIAS ${PROJECT_NAME})
 
 target_sources(${PROJECT_NAME} PRIVATE
-  src/literal.cpp
   src/ast.cpp
   src/convert.cpp
   src/leaf_errors.cpp
   src/error_handler.cpp
+  src/parse.cpp
 )
 
-target_link_libraries(${PROJECT_NAME} PRIVATE
+target_link_libraries(${PROJECT_NAME} PUBLIC
   fmt::fmt
   range-v3::range-v3
   Boost::headers
@@ -42,6 +43,15 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
   )
 endif()
 
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND NOT CLANG_MSVC_VARIANT)
+  # clang-cl: note: AddressSanitizer doesn't support linking with debug runtime libraries yet
+  target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
+  target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
+elseif(NOT CLANG_MSVC_VARIANT)
+  target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+  target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
+endif()
+
 # TODO Fix (most) of this issues
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND NOT CLANG_MSVC_VARIANT)
   target_compile_options(${PROJECT_NAME} PRIVATE
@@ -65,17 +75,8 @@ configure_file(
   ${PROJECT_BINARY_DIR}/include/literal/convert/detail/int_types.hpp
 )
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC" AND NOT CLANG_MSVC_VARIANT)
-  # clang-cl: note: AddressSanitizer doesn't support linking with debug runtime libraries yet
-  target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
-  target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:/fsanitize=address>)
-elseif(NOT CLANG_MSVC_VARIANT)
-  target_compile_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
-  target_link_options(${PROJECT_NAME} PRIVATE $<$<CONFIG:Debug>:-fsanitize=address,undefined>)
-endif()
-
 target_include_directories(
-  ${PROJECT_NAME} PRIVATE
+  ${PROJECT_NAME} PUBLIC
     $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
 )

@@ -6,4 +6,7 @@
 // NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
 #define BOOST_TEST_MODULE X3 playground literal
 
-#include <boost/test/unit_test.hpp>  // IWYU pragma: keep
+#include <boost/test/included/unit_test.hpp> // IWYU pragma: keep
+
+// header only Unit Test Framework to avoid ASAN linker errors, otherwise
+//#include <boost/test/unit_test.hpp>

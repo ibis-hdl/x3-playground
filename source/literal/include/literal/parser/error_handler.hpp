@@ -28,7 +28,7 @@ namespace x3 = boost::spirit::x3;
 namespace detail {
 
 /// global developer settings for verbose/noisy debugging of error recovery and handling
-static bool constexpr verbose_error_handler = true;
+static bool constexpr verbose_error_handler = false;
 
 ///
 /// Get an excerpt as `string_view` of the iterator range and pay attention
@@ -116,6 +116,8 @@ auto error_recovery(It& first, It last, Ctx const& ctx) {
     return detail::error_recovery_strategy<RuleID>{}(first, last, ctx);
 }
 
+static unsigned error_count = 0;
+
 ///
 /// Customizable parser error handler to use different error recovery strategies.
 ///
@@ -138,9 +140,11 @@ struct my_x3_error_handler {
     {
         using detail::verbose_error_handler;
         auto& os = std::cout;
+        ++error_count;
 
         if constexpr(verbose_error_handler) {
-            os << fmt::format("*** error handler <{}> ***\n", id());
+            os << fmt::format("*** error handler <{}> (error #{}) ***\n",
+                              id(), error_count);
         }
 
         // This `on_error` catches the `x3::expectation_failure` exceptions and the exceptions
